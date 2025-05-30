@@ -297,10 +297,10 @@ async def run_scenario_with_reference_solution(
     for remote_path in devbox_path_list:
         name = Path(remote_path).name
         example_id = Path(remote_path).parent.name
-        local_path = Path(".") / "trajectories" / example_id / name
+        local_path = Path(".") / "trajectories" / benchmark_run_id / model_name / example_id / name
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        with local_path.open("rb") as f:
-            f.write(runloop.devboxes.download_file(scenario_run.devbox_id, remote_path))
+        with local_path.open("wb") as f:
+            f.write(await runloop.devboxes.download_file(scenario_run.devbox_id, path=remote_path))
 
     if not keep_devbox:
         # Step 5. We complete the scenario run. This will delete the devbox and clean up the environment.
