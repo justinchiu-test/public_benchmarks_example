@@ -245,7 +245,8 @@ async def run_scenario_with_reference_solution(
 	--env.deployment.type=local \
 	--agent.model.api_key=$OPENAI_API_KEY \
 	--problem_statement.path="/home/user/problem_statement.txt" \
-	--problem_statement.type=text_file
+	--problem_statement.type=text_file \
+	--output_dir trajectories/swesmith
     """
     execution = await runloop.devboxes.execute_async(
         scenario_run.devbox_id, command=SWE_AGENT_COMMAND
@@ -279,8 +280,30 @@ async def run_scenario_with_reference_solution(
     )
     print(f"Scoring result: id={result.id} score={score}")
 
+    # Step 4. Copy all trajectories over and label
+    # First, figure out all paths we need to copy over
+    ls_execution = await runloop.devboxes.execute_async(
+        scenario_run.devbox_id,
+        command="realpath SWE-agent/trajectories/swesmith/*/*",
+    )
+    ls_execution_state = await runloop.devboxes.executions.await_completed(
+        execution_id=ls_execution.execution_id,
+        devbox_id=scenario_run.devbox_id,
+        polling_config=PollingConfig(max_attempts=timeout_secs),
+    )
+    ls_output = ls_execution_state.stdout
+    devbox_path_list = ls_output.split()
+    # Then, copy them over
+    for remote_path in devbox_path_list:
+        name = Path(remote_path).name
+        example_id = Path(remote_path).parent.name
+        local_path = Path(".") / "trajectories" / example_id / name
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        with local_path.open("rb") as f:
+            f.write(runloop.devboxes.download_file(scenario_run.devbox_id, remote_path))
+
     if not keep_devbox:
-        # Step 4. We complete the scenario run. This will delete the devbox and clean up the environment.
+        # Step 5. We complete the scenario run. This will delete the devbox and clean up the environment.
         await runloop.scenarios.runs.complete(id=scenario_run.id)
     else:
         print(f"Keeping devbox {scenario_run.devbox_id} running for manual inspection")
