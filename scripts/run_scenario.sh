@@ -1,0 +1,1 @@
+uv run run_public_benchmark.py --scenario-id scn_2zmp1tPUbIyDflEK7QYUz --config-path /home/justinchiu_cohere_com/SWE-agent/config/sweagent_0_7/07_thought_action.yaml --openai-api-base https://api.together.xyz/v1 --openai-api-key $TOGETHER_API_KEY --model-name openai/Qwen/Qwen3-235B-A22B-fp8-tput --timeout-secs 900
