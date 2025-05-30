@@ -293,11 +293,12 @@ async def run_scenario_with_reference_solution(
     )
     ls_output = ls_execution_state.stdout
     devbox_path_list = ls_output.split()
+    data_name = benchmark_run_id or scenario_run.benchmark_run_id or "singleton"
     # Then, copy them over
     for remote_path in devbox_path_list:
         name = Path(remote_path).name
         example_id = Path(remote_path).parent.name
-        local_path = Path(".") / "trajectories" / benchmark_run_id / model_name / example_id / name
+        local_path = Path(".") / "trajectories" / data_name / model_name / example_id / name
         local_path.parent.mkdir(parents=True, exist_ok=True)
         with local_path.open("wb") as f:
             f.write(await runloop.devboxes.download_file(scenario_run.devbox_id, path=remote_path))
