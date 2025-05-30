@@ -232,6 +232,7 @@ async def run_scenario_with_reference_solution(
     SWE_AGENT_COMMAND = f"""
     cd SWE-agent && source .venv/bin/activate && \
     pip install --upgrade pip && \
+    export ANTHROPIC_API_KEY={openai_api_key} && \
     export OPENAI_API_KEY={openai_api_key} && \
     export OPENAI_API_BASE={openai_api_base} && \
     sweagent run \
