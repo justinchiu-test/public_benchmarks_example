@@ -15,6 +15,7 @@ export MODEL_NAME="openai/Qwen/Qwen3-235B-A22B-fp8-tput"
 # Claude
 export OPENAI_API_KEY=$ANTHROPIC_API_KEY
 export MODEL_NAME="claude-sonnet-4-20250514"
+#export MODEL_NAME="claude-opus-4-20250514"
 
 uv run run_public_benchmark.py \
     --benchmark-id bmd_2zmp3Mu3LhWu7yDVIfq3m \

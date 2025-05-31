@@ -10,7 +10,7 @@ from runloop_api_client.types import ScenarioRetrieveResponse
 from runloop_api_client.types.scenario_run_view import ScenarioRunView
 from runloop_api_client.lib.polling import PollingConfig, PollingTimeout
 
-CONCURRENT_RUNS = 16
+CONCURRENT_RUNS = 64
 semaphore = asyncio.Semaphore(CONCURRENT_RUNS)
 
 
