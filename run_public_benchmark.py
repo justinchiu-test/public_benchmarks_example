@@ -304,10 +304,13 @@ async def run_scenario_with_reference_solution(
 
         binary_response = await runloop.devboxes.download_file(scenario_run.devbox_id, path=remote_path)
         await binary_response.write_to_file(local_path)
-    if result.scoring_contract_result:
-        with (Path(".") / "trajectories" / data_name / model_name / example_id / "score.json").open("w") as f:
-            json.dump(result.scoring_contract_result.model_dump(), f, indent=2)
 
+    # save score
+    if result.scoring_contract_result:
+        score_path = Path(".") / "trajectories" / data_name / model_name / example_id / "score.json"
+        score_path.parent.mkdir(parents=True, exist_ok=True)
+        with score_path.open("w") as f:
+            json.dump(result.scoring_contract_result.model_dump(), f, indent=2)
 
     if not keep_devbox:
         # Step 5. We complete the scenario run. This will delete the devbox and clean up the environment.
