@@ -1,6 +1,7 @@
 import asyncio
 import argparse
 from dataclasses import dataclass
+import json
 from typing import Optional
 from pathlib import Path
 
@@ -300,8 +301,13 @@ async def run_scenario_with_reference_solution(
         example_id = Path(remote_path).parent.name
         local_path = Path(".") / "trajectories" / data_name / model_name / example_id / name
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        with local_path.open("wb") as f:
-            f.write(await runloop.devboxes.download_file(scenario_run.devbox_id, path=remote_path))
+
+        binary_response = await runloop.devboxes.download_file(scenario_run.devbox_id, path=remote_path)
+        await binary_response.write_to_file(local_path)
+    if result.scoring_contract_result:
+        with (Path(".") / "trajectories" / data_name / model_name / example_id / "score.json").open("w") as f:
+            json.dump(result.scoring_contract_result.model_dump(), f, indent=2)
+
 
     if not keep_devbox:
         # Step 5. We complete the scenario run. This will delete the devbox and clean up the environment.
