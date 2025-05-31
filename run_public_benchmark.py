@@ -233,6 +233,8 @@ async def run_scenario_with_reference_solution(
     SWE_AGENT_COMMAND = f"""
     cd SWE-agent && source .venv/bin/activate && \
     pip install --upgrade pip && \
+    export DEEPSEEK_API_KEY={openai_api_key} && \
+    export CO_API_KEY={openai_api_key} && \
     export ANTHROPIC_API_KEY={openai_api_key} && \
     export OPENAI_API_KEY={openai_api_key} && \
     export OPENAI_API_BASE={openai_api_base} && \
