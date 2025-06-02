@@ -30,8 +30,9 @@ export MODEL_NAME="openai/deepseek-ai/DeepSeek-V3"
 #export OPENAI_API_KEY=$CO_API_KEY
 
 
-export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default.yaml
-#export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_backticks.yaml
+#export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default.yaml
+export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_backticks.yaml
+#export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_xml.yaml
 
 uv run run_public_benchmark.py \
     --scenario-id scn_2zmp1tPUbIyDflEK7QYUz  \
@@ -41,3 +42,5 @@ uv run run_public_benchmark.py \
     --openai-api-key $OPENAI_API_KEY \
     --model-name $MODEL_NAME
 
+echo $CONFIG
+echo $MODEL_NAME

@@ -10,8 +10,7 @@ from runloop_api_client.types import ScenarioRetrieveResponse
 from runloop_api_client.types.scenario_run_view import ScenarioRunView
 from runloop_api_client.lib.polling import PollingConfig, PollingTimeout
 
-CONCURRENT_RUNS = 64
-semaphore = asyncio.Semaphore(CONCURRENT_RUNS)
+
 
 
 @dataclass
@@ -45,9 +44,21 @@ async def main():
 
     parser.add_argument("--openai-api-base", type=str, help="OAI compatible base url")
     parser.add_argument("--openai-api-key", type=str, help="api key")
-    parser.add_argument("--model-name", type=str, help="Model to run with. start with openai/ for oai compatible models")
+    parser.add_argument(
+        "--model-name",
+        type=str,
+        help="Model to run with. start with openai/ for oai compatible models",
+    )
+    parser.add_argument(
+        "--max_output_tokens", type=int, default=8192, help="Max output tokens"
+    )
 
-    parser.add_argument("--timeout-secs", type=int, default=900, help="Secs for polling timeout")
+    parser.add_argument(
+        "--timeout-secs", type=int, default=900, help="Secs for polling timeout"
+    )
+    parser.add_argument(
+        "--concurrent_runs", type=int, default=64, help="Num conc workers"
+    )
     parser.add_argument(
         "--keep-devbox",
         action="store_true",
@@ -65,6 +76,7 @@ async def main():
             "Either --benchmark-id or --scenario-id or --scenario-name must be provided"
         )
 
+    semaphore = asyncio.Semaphore(args.concurrent_runs)
     runloop = AsyncRunloop()
 
     # Optionally, shutdown all running devboxes to ensure no abandoned resources
@@ -102,7 +114,9 @@ async def main():
                     args.openai_api_base,
                     args.openai_api_key,
                     args.model_name,
+                    args.max_output_tokens,
                     args.timeout_secs,
+                    semaphore,
                     args.keep_devbox,
                 )
                 for id in benchmark_run.pending_scenarios
@@ -143,11 +157,16 @@ async def main():
         if scenario_id is None:
             raise ValueError("No scenario ID found")
         result = await attempt_scenario_run_with_golden_patch(
-            runloop, scenario_id, None, Path(args.config_path),
+            runloop,
+            scenario_id,
+            None,
+            Path(args.config_path),
             args.openai_api_base,
             args.openai_api_key,
             args.model_name,
-            args.timeout_secs, args.keep_devbox,
+            args.max_output_tokens,
+            args.timeout_secs,
+            args.keep_devbox,
         )
         if not result.run_completed:
             print(f"Error running scenario: {result.error}")
@@ -165,14 +184,25 @@ async def attempt_scenario_run_with_golden_patch(
     openai_api_base: str,
     openai_api_key: str,
     model_name: str,
+    max_output_tokens: int,
     timeout_secs: int,
+    semaphore: asyncio.Semaphore,
     keep_devbox: bool = False,
 ) -> ScenarioRunResult:
     scenario = await runloop.scenarios.retrieve(scenario_id)
     try:
         async with semaphore:
             run = await run_scenario_with_reference_solution(
-                runloop, scenario, benchmark_run_id, config_path, openai_api_base, openai_api_key, model_name, timeout_secs, keep_devbox
+                runloop,
+                scenario,
+                benchmark_run_id,
+                config_path,
+                openai_api_base,
+                openai_api_key,
+                model_name,
+                max_output_tokens,
+                timeout_secs,
+                keep_devbox,
             )
             return ScenarioRunResult(scenario=scenario, run=run)
     except Exception as e:
@@ -187,6 +217,7 @@ async def run_scenario_with_reference_solution(
     openai_api_base: str,
     openai_api_key: str,
     model_name: str,
+    max_output_tokens: int,
     timeout_secs: int,
     keep_devbox: bool = False,
 ) -> ScenarioRunView:
@@ -243,6 +274,7 @@ async def run_scenario_with_reference_solution(
 	--agent.model.name={model_name} \
     --agent.model.per_instance_cost_limit=0 \
     --agent.model.total_cost_limit=0 \
+    --agent.model.max_output_tokens={max_output_tokens} \
 	--env.repo.type=preexisting \
 	--env.repo.repo_name="testbed"  \
 	--env.deployment.type=local \
@@ -301,15 +333,26 @@ async def run_scenario_with_reference_solution(
     for remote_path in devbox_path_list:
         name = Path(remote_path).name
         example_id = Path(remote_path).parent.name
-        local_path = Path(".") / "trajectories" / data_name / model_name / example_id / name
+        local_path = (
+            Path(".") / "trajectories" / data_name / model_name / example_id / name
+        )
         local_path.parent.mkdir(parents=True, exist_ok=True)
 
-        binary_response = await runloop.devboxes.download_file(scenario_run.devbox_id, path=remote_path)
+        binary_response = await runloop.devboxes.download_file(
+            scenario_run.devbox_id, path=remote_path
+        )
         await binary_response.write_to_file(local_path)
 
     # save score
     if result.scoring_contract_result:
-        score_path = Path(".") / "trajectories" / data_name / model_name / example_id / "score.json"
+        score_path = (
+            Path(".")
+            / "trajectories"
+            / data_name
+            / model_name
+            / example_id
+            / "score.json"
+        )
         score_path.parent.mkdir(parents=True, exist_ok=True)
         with score_path.open("w") as f:
             json.dump(result.scoring_contract_result.model_dump(), f, indent=2)
