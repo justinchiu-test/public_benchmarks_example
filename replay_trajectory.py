@@ -193,6 +193,8 @@ def main():
     # Set model based on provider
     if args.provider == "together":
         model = "deepseek-ai/DeepSeek-R1"
+        model = "deepseek-ai/DeepSeek-V3"
+        model = "Qwen/Qwen3-235B-A22B-fp8-tput"
     elif args.provider == "deepseek":
         model = "deepseek-reasoner"
 
