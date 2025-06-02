@@ -28,13 +28,17 @@ export MAX_OUTPUT_TOKENS=32000
 #export OPENAI_API_BASE="https://api.together.xyz/v1"
 #export OPENAI_API_KEY=$TOGETHER_API_KEY
 #export MODEL_NAME="openai/deepseek-ai/DeepSeek-V3"
+#export MAX_OUTPUT_TOKENS=32000
 
 #export OPENAI_API_KEY=$DEEPSEEK_API_KEY
 #export MODEL_NAME="deepseek/deepseek-chat"
+#export MAX_OUTPUT_TOKENS=32000#
 #
-#export OPENAI_API_BASE="https://api.together.xyz/v1"
-#export OPENAI_API_KEY=$TOGETHER_API_KEY
-#export MODEL_NAME="openai/deepseek-ai/DeepSeek-R1"
+export OPENAI_API_BASE="https://api.together.xyz/v1"
+export OPENAI_API_KEY=$TOGETHER_API_KEY
+export MODEL_NAME="openai/deepseek-ai/DeepSeek-R1"
+export MAX_OUTPUT_TOKENS=32000
+
 #export OPENAI_API_KEY=$DEEPSEEK_API_KEY
 #export MODEL_NAME="deepseek/deepseek-reasoner"
 #export MAX_OUTPUT_TOKENS=32000
