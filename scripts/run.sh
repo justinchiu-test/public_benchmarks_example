@@ -9,13 +9,13 @@ export MODEL_NAME="openai/c3-sweep-tkbjm9b4-mc01-fp16"
 export OPENAI_API_BASE="https://stg.api.cohere.ai/compatibility/v1"
 export OPENAI_API_KEY=$CO_API_KEY_STAGING
 export MAX_OUTPUT_TOKENS=8000
-export CONCURRENT=64
+export CONCURRENT=32
 
 # Claude
-#export OPENAI_API_KEY=$ANTHROPIC_API_KEY
-#export MODEL_NAME="claude-sonnet-4-20250514"
+export OPENAI_API_KEY=$ANTHROPIC_API_KEY
+export MODEL_NAME="claude-sonnet-4-20250514"
 #export MODEL_NAME="claude-opus-4-20250514"
-#export CONCURRENT=64
+export CONCURRENT=32
 
 # Qwen
 #export OPENAI_API_BASE="https://api.together.xyz/v1"
@@ -62,12 +62,12 @@ export CONCURRENT=64
 #export CONCURRENT=64
 
 
-#export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default.yaml
+export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_backticks.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_thought_action.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_xml.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn.yaml
-export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10.yaml
+#export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10swesmith.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_thoughtaction_lastn.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn_oh.yaml
 
