@@ -79,7 +79,7 @@ if __name__ == "__main__":
             ['uv', 'run', 'rl', 'devbox', 'list', '--status', 'running'],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=300
         )
         if result.returncode == 0:
             with open("devbox_output.txt", "w") as f:
