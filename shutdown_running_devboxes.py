@@ -70,22 +70,41 @@ def shutdown_devboxes(ids_file):
         print(f"Error: {ids_file} not found. Please run the parsing first.")
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "--shutdown":
-        # Shutdown mode
+    # Always: create, parse, then shutdown
+    
+    # Step 1: Generate devbox_output.txt
+    print("Generating devbox_output.txt...")
+    try:
+        result = subprocess.run(
+            ['uv', 'run', 'rl', 'devbox', 'list', '--status', 'running'],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode == 0:
+            with open("devbox_output.txt", "w") as f:
+                f.write(result.stdout)
+            print("✓ devbox_output.txt generated successfully")
+        else:
+            print(f"✗ Failed to generate devbox_output.txt: {result.stderr}")
+            sys.exit(1)
+    except Exception as e:
+        print(f"✗ Error generating devbox_output.txt: {e}")
+        sys.exit(1)
+    
+    # Step 2: Parse running devboxes
+    running_ids = parse_running_devboxes("devbox_output.txt")
+    
+    if running_ids:
+        # Write to devbox_ids.txt
+        with open("devbox_ids.txt", "w") as f:
+            for devbox_id in running_ids:
+                f.write(devbox_id + "\n")
+        
+        print(f"Found {len(running_ids)} running devboxes")
+        print("IDs written to devbox_ids.txt")
+        
+        # Step 3: Shutdown all devboxes
         shutdown_devboxes("devbox_ids.txt")
     else:
-        # Parse mode (default)
-        # from `uv run rl devbox list --status running > devbox_output.txt`
-        running_ids = parse_running_devboxes("devbox_output.txt")
-        
-        if running_ids:
-            # Write to devbox_ids.txt
-            with open("devbox_ids.txt", "w") as f:
-                for devbox_id in running_ids:
-                    f.write(devbox_id + "\n")
-            
-            print(f"Found {len(running_ids)} running devboxes")
-            print("IDs written to devbox_ids.txt")
-            print("To shutdown all devboxes, run: python parse_devboxes.py --shutdown")
-        else:
-            print("No running devboxes found")
+        print("No running devboxes found")
