@@ -11,3 +11,6 @@ wheels/
 
 # data
 trajectories/
+
+# Node
+node_modules/

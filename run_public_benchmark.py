@@ -6,14 +6,15 @@ from typing import Optional
 from pathlib import Path
 
 from runloop_api_client import AsyncRunloop
-from runloop_api_client.types import ScenarioRetrieveResponse
+from runloop_api_client.types import ScenarioView
 from runloop_api_client.types.scenario_run_view import ScenarioRunView
 from runloop_api_client.lib.polling import PollingConfig, PollingTimeout
 
 
+
 @dataclass
 class ScenarioRunResult:
-    scenario: ScenarioRetrieveResponse
+    scenario: ScenarioView
     run: Optional[ScenarioRunView] = None
     error: Optional[str] = None
 
@@ -92,6 +93,8 @@ async def main():
         # Step 1. We start a benchmark run which keeps track of all the scenarios that we need to run for that benchmark
         # Benchmarks are a collection of scenarios that together test a specific set of skills. For example, the SWE-bench Verified benchmark is a collection of scenarios that test solving python problems for real world use cases.
         # Benchmark runs are used to track the results of running an agent against a benchmark.
+
+        benchmark = await runloop.benchmarks.retrieve(benchmark_id)
         benchmark_run = await runloop.benchmarks.start_run(
             benchmark_id=benchmark_id,
         )
@@ -117,7 +120,7 @@ async def main():
                     semaphore,
                     args.keep_devbox,
                 )
-                for id in benchmark_run.pending_scenarios
+                for id in benchmark.scenario_ids
             ]
         )
 
@@ -209,7 +212,7 @@ async def attempt_scenario_run_with_golden_patch(
 
 async def run_scenario_with_reference_solution(
     runloop: AsyncRunloop,
-    scenario: ScenarioRetrieveResponse,
+    scenario: ScenarioView,
     benchmark_run_id: str | None,
     config_path: Path,
     openai_api_base: str,
@@ -233,57 +236,67 @@ async def run_scenario_with_reference_solution(
         f"View Run Results at: https://platform.runloop.ai/scenarios/{scenario.id}/runs/{scenario_run.id}"
     )
 
-    # Step 2. Run SWE agent to solve the scenario
-    # First write the problem statement to a file
-    await runloop.devboxes.write_file_contents(
-        id=scenario_run.devbox_id,
-        file_path="/home/user/problem_statement.txt",
-        contents=scenario.input_context.problem_statement,
-    )
-
-    with config_path.open("r") as f:
-        swesmith_yaml = f.read()
-
-    await runloop.devboxes.write_file_contents(
-        id=scenario_run.devbox_id,
-        file_path="/home/user/swesmith.yaml",
-        contents=swesmith_yaml,
-    )
-
-    prepare_swe_agent_command = await runloop.devboxes.execute_sync(
-        id=scenario_run.devbox_id,
-        command="git clone -b coagent --depth 1 https://github.com/justinchiu-test/SWE-agent && cd SWE-agent && uv venv && source .venv/bin/activate && uv pip install -e .",
-    )
-    if prepare_swe_agent_command.exit_status != 0:
-        raise Exception(
-            f"Failed to prepare SWE agent. Exit status: {prepare_swe_agent_command.exit_status}"
+    try:
+        # Step 2. Run SWE agent to solve the scenario
+        # First write the problem statement to a file
+        await runloop.devboxes.write_file_contents(
+            id=scenario_run.devbox_id,
+            file_path="/home/user/problem_statement.txt",
+            contents=scenario.input_context.problem_statement,
         )
 
-    SWE_AGENT_COMMAND = f"""
-    cd SWE-agent && source .venv/bin/activate && \
-    pip install --upgrade pip && \
-    export DEEPSEEK_API_KEY={openai_api_key} && \
-    export CO_API_KEY={openai_api_key} && \
-    export ANTHROPIC_API_KEY={openai_api_key} && \
-    export OPENAI_API_KEY={openai_api_key} && \
-    export OPENAI_API_BASE={openai_api_base} && \
-    sweagent run \
-    --config /home/user/swesmith.yaml \
-	--agent.model.name={model_name} \
-    --agent.model.per_instance_cost_limit=0 \
-    --agent.model.total_cost_limit=0 \
-    --agent.model.max_output_tokens={max_output_tokens} \
-	--env.repo.type=preexisting \
-	--env.repo.repo_name="testbed"  \
-	--env.deployment.type=local \
-	--agent.model.api_key=$OPENAI_API_KEY \
-	--problem_statement.path="/home/user/problem_statement.txt" \
-	--problem_statement.type=text_file \
-	--output_dir trajectories/swesmith
-    """
-    execution = await runloop.devboxes.execute_async(
-        scenario_run.devbox_id, command=SWE_AGENT_COMMAND
-    )
+        with config_path.open("r") as f:
+            swesmith_yaml = f.read()
+
+        await runloop.devboxes.write_file_contents(
+            id=scenario_run.devbox_id,
+            file_path="/home/user/swesmith.yaml",
+            contents=swesmith_yaml,
+        )
+
+        prepare_swe_agent_command = await runloop.devboxes.execute_sync(
+            id=scenario_run.devbox_id,
+            command="git clone -b coagent --depth 1 https://github.com/justinchiu-test/SWE-agent && cd SWE-agent && uv venv && source .venv/bin/activate && uv pip install -e .",
+        )
+        if prepare_swe_agent_command.exit_status != 0:
+            raise Exception(
+                f"Failed to prepare SWE agent. Exit status: {prepare_swe_agent_command.exit_status}"
+            )
+
+        SWE_AGENT_COMMAND = f"""
+        cd SWE-agent && source .venv/bin/activate && \
+        pip install --upgrade pip && \
+        export DEEPSEEK_API_KEY={openai_api_key} && \
+        export CO_API_KEY={openai_api_key} && \
+        export ANTHROPIC_API_KEY={openai_api_key} && \
+        export OPENAI_API_KEY={openai_api_key} && \
+        export OPENAI_API_BASE={openai_api_base} && \
+        sweagent run \
+        --config /home/user/swesmith.yaml \
+    	--agent.model.name={model_name} \
+        --agent.model.per_instance_cost_limit=0 \
+        --agent.model.total_cost_limit=0 \
+        --agent.model.max_output_tokens={max_output_tokens} \
+    	--env.repo.type=preexisting \
+    	--env.repo.repo_name="testbed"  \
+    	--env.deployment.type=local \
+    	--agent.model.api_key=$OPENAI_API_KEY \
+    	--problem_statement.path="/home/user/problem_statement.txt" \
+    	--problem_statement.type=text_file \
+    	--output_dir trajectories/swesmith
+        """
+        execution = await runloop.devboxes.execute_async(
+            scenario_run.devbox_id, command=SWE_AGENT_COMMAND
+        )
+    except Exception as e:
+        print(f"Error running scenario, before scoring: {e}")
+
+        # Ensure we clean up the devbox on error
+        if not keep_devbox:
+            await runloop.devboxes.shutdown(id=scenario_run.devbox_id)
+
+        raise e
+
     try:
         final_execution_state = await runloop.devboxes.executions.await_completed(
             execution_id=execution.execution_id,
@@ -304,42 +317,60 @@ async def run_scenario_with_reference_solution(
     # -------------------------------------------
 
     # Step 3. We score the scenario. This will automatically run all scorers for the scenario against the current state of the devbox.
-    result = await runloop.scenarios.runs.score_and_await(
-        id=scenario_run.id,
-        polling_config=PollingConfig(max_attempts=timeout_secs),
-    )
-    score = (
-        result.scoring_contract_result.score if result.scoring_contract_result else None
-    )
-    print(f"Scoring result: id={result.id} score={score}")
+    try:
+        result = await runloop.scenarios.runs.score_and_await(
+            id=scenario_run.id,
+            polling_config=PollingConfig(max_attempts=timeout_secs),
+        )
+        score = (
+            result.scoring_contract_result.score if result.scoring_contract_result else None
+        )
+        print(f"Scoring result: id={result.id} score={score}")
+    except Exception as e:
+        print(f"Error scoring scenario: {e}")
+
+        # Ensure we clean up the devbox on error
+        if not keep_devbox:
+            await runloop.devboxes.shutdown(id=scenario_run.devbox_id)
+
+        raise e
 
     # Step 4. Copy all trajectories over and label
     # First, figure out all paths we need to copy over
-    ls_execution = await runloop.devboxes.execute_async(
-        scenario_run.devbox_id,
-        command="realpath SWE-agent/trajectories/swesmith/*/*",
-    )
-    ls_execution_state = await runloop.devboxes.executions.await_completed(
-        execution_id=ls_execution.execution_id,
-        devbox_id=scenario_run.devbox_id,
-        polling_config=PollingConfig(max_attempts=timeout_secs),
-    )
-    ls_output = ls_execution_state.stdout
-    devbox_path_list = ls_output.split()
-    data_name = benchmark_run_id or scenario_run.benchmark_run_id or "singleton"
-    # Then, copy them over
-    for remote_path in devbox_path_list:
-        name = Path(remote_path).name
-        example_id = Path(remote_path).parent.name
-        local_path = (
-            Path(".") / "trajectories" / data_name / model_name / example_id / name
+    try:
+        ls_execution = await runloop.devboxes.execute_async(
+            scenario_run.devbox_id,
+            command="realpath SWE-agent/trajectories/swesmith/*/*",
         )
-        local_path.parent.mkdir(parents=True, exist_ok=True)
+        ls_execution_state = await runloop.devboxes.executions.await_completed(
+            execution_id=ls_execution.execution_id,
+            devbox_id=scenario_run.devbox_id,
+            polling_config=PollingConfig(max_attempts=timeout_secs),
+        )
+        ls_output = ls_execution_state.stdout
+        devbox_path_list = ls_output.split()
+        data_name = benchmark_run_id or scenario_run.benchmark_run_id or "singleton"
+        # Then, copy them over
+        for remote_path in devbox_path_list:
+            name = Path(remote_path).name
+            example_id = Path(remote_path).parent.name
+            local_path = (
+                Path(".") / "trajectories" / data_name / model_name / example_id / name
+            )
+            local_path.parent.mkdir(parents=True, exist_ok=True)
 
-        binary_response = await runloop.devboxes.download_file(
-            scenario_run.devbox_id, path=remote_path
-        )
-        await binary_response.write_to_file(local_path)
+            binary_response = await runloop.devboxes.download_file(
+                scenario_run.devbox_id, path=remote_path
+            )
+            await binary_response.write_to_file(local_path)
+    except Exception as e:
+        print(f"Error saving trajectory for scenario: {e}")
+
+        # Ensure we clean up the devbox on error
+        if not keep_devbox:
+            await runloop.devboxes.shutdown(id=scenario_run.devbox_id)
+
+        raise e
 
     # save score
     if result.scoring_contract_result:
