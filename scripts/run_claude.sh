@@ -12,10 +12,10 @@ export MAX_OUTPUT_TOKENS=8000
 export CONCURRENT=16
 
 # Claude
-#export OPENAI_API_KEY=$ANTHROPIC_API_KEY
-#export MODEL_NAME="claude-sonnet-4-20250514"
+export OPENAI_API_KEY=$ANTHROPIC_API_KEY
+export MODEL_NAME="claude-sonnet-4-20250514"
 #export MODEL_NAME="claude-opus-4-20250514"
-#export CONCURRENT=32
+export CONCURRENT=16
 
 # Qwen
 #export OPENAI_API_BASE="https://api.together.xyz/v1"

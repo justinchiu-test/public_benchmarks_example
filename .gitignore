@@ -11,6 +11,8 @@ wheels/
 
 # data
 trajectories/
+devbox_ids.txt
+devbox_output.txt
 
 # Node
 node_modules/
