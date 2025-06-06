@@ -11,8 +11,6 @@ from runloop_api_client.types.scenario_run_view import ScenarioRunView
 from runloop_api_client.lib.polling import PollingConfig, PollingTimeout
 
 
-
-
 @dataclass
 class ScenarioRunResult:
     scenario: ScenarioRetrieveResponse
