@@ -96,27 +96,23 @@ async def main():
 
     if tasks:
         print(f"\nAnalyzing {len(tasks)} trajectories with Claude...")
-        async with asyncio.TaskGroup() as tg:
-            task_mapping = {}
-            for task, exampledir in tasks:
-                async_task = tg.create_task(task)
-                task_mapping[async_task] = exampledir
+        task_list = [task for task, _ in tasks]
+        exampledir_list = [exampledir for _, exampledir in tasks]
 
-        with tqdm(total=len(task_mapping), desc="Processing Claude analyses") as pbar:
-            for task, exampledir in task_mapping.items():
-                try:
-                    analysis = task.result()
-                except Exception as e:
-                    analysis = f"Error analyzing trajectory: {str(e)}"
-                    print(f"Error analyzing {exampledir.name}: {str(e)}")
+        results = await tqdm.gather(*task_list, desc="Processing Claude analyses")
 
-                print(f"Claude's Analysis for {exampledir.name}:\n{analysis}\n")
-                print("=" * 80)
+        for result, exampledir in zip(results, exampledir_list):
+            if isinstance(result, Exception):
+                analysis = f"Error analyzing trajectory: {str(result)}"
+                print(f"Error analyzing {exampledir.name}: {str(result)}")
+            else:
+                analysis = result
 
-                with (exampledir / "claude_analysis.txt").open("w") as f:
-                    f.write(analysis)
+            print(f"Claude's Analysis for {exampledir.name}:\n{analysis}\n")
+            print("=" * 80)
 
-                pbar.update(1)
+            with (exampledir / "claude_analysis.txt").open("w") as f:
+                f.write(analysis)
 
 
 if __name__ == "__main__":
