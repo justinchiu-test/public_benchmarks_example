@@ -56,7 +56,7 @@ def analyze_mistakes_with_claude(messages):
 12. **malformed_tool_calls** - Incorrect tool usage, syntax errors in tool parameters, or broken tool invocations
 
 **Response Format:**
-Return ONLY a valid JSON object:
+Return an analysis of the misatkes, and then a valid JSON object:
 ```json
 {
   "predicted_success": true/false,
