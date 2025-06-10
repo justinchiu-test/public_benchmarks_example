@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 from anthropic import AsyncAnthropic
+from tqdm.asyncio import tqdm
 
 from tools import SWEAGENT_TOOLS_RAW
 
@@ -94,23 +95,28 @@ async def main():
     )
 
     if tasks:
+        print(f"\nAnalyzing {len(tasks)} trajectories with Claude...")
         async with asyncio.TaskGroup() as tg:
             task_mapping = {}
             for task, exampledir in tasks:
                 async_task = tg.create_task(task)
                 task_mapping[async_task] = exampledir
 
-        for task, exampledir in task_mapping.items():
-            try:
-                analysis = task.result()
-            except Exception as e:
-                analysis = f"Error analyzing trajectory: {str(e)}"
+        with tqdm(total=len(task_mapping), desc="Processing Claude analyses") as pbar:
+            for task, exampledir in task_mapping.items():
+                try:
+                    analysis = task.result()
+                except Exception as e:
+                    analysis = f"Error analyzing trajectory: {str(e)}"
+                    print(f"Error analyzing {exampledir.name}: {str(e)}")
 
-            print(f"Claude's Analysis for {exampledir.name}:\n{analysis}\n")
-            print("=" * 80)
+                print(f"Claude's Analysis for {exampledir.name}:\n{analysis}\n")
+                print("=" * 80)
 
-            with (exampledir / "claude_analysis.txt").open("w") as f:
-                f.write(analysis)
+                with (exampledir / "claude_analysis.txt").open("w") as f:
+                    f.write(analysis)
+
+                pbar.update(1)
 
 
 if __name__ == "__main__":

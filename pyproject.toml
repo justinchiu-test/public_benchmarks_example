@@ -9,4 +9,5 @@ dependencies = [
     "openai>=1.82.1",
     "ruff>=0.11.11",
     "runloop-api-client>=0.39.0",
+    "tqdm>=4.66.0",
 ]

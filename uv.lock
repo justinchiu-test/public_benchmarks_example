@@ -192,6 +192,7 @@ dependencies = [
     { name = "openai" },
     { name = "ruff" },
     { name = "runloop-api-client" },
+    { name = "tqdm" },
 ]
 
 [package.metadata]
@@ -200,6 +201,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.82.1" },
     { name = "ruff", specifier = ">=0.11.11" },
     { name = "runloop-api-client", specifier = ">=0.39.0" },
+    { name = "tqdm", specifier = ">=4.66.0" },
 ]
 
 [[package]]
