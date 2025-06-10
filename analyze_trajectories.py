@@ -1,13 +1,13 @@
-import asyncio
 import json
 import os
+import re
 from pathlib import Path
-from anthropic import AsyncAnthropic
-from tqdm.asyncio import tqdm
+from anthropic import Anthropic
+from tqdm import tqdm
 
 from tools import SWEAGENT_TOOLS_RAW
 
-client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 
 TOOLS = []
@@ -17,48 +17,77 @@ for x in SWEAGENT_TOOLS_RAW:
     TOOLS.append(tool)
 
 
-async def analyze_mistakes_with_claude(messages, semaphore):
+def analyze_mistakes_with_claude(messages):
     """Send trajectory to Claude for mistake analysis."""
-    async with semaphore:
-        if messages[0]["role"] == "system":
-            messages.pop(0)
-        try:
-            response = await client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=8000,
-                tools=TOOLS,
-                messages=[
-                    dict(
-                        role="user" if x["role"] == "tool" else x["role"],
-                        content=x["content"],
-                    )
-                    for x in messages
-                ]
-                + [
-                    {
-                        "role": "user",
-                        "content": """Analyze this failed trajectory and identify the key mistakes that led to a low score. Report on:
-1. Inefficient bash usage
-2. Lacking or incorrect testing
-3. Mistakes in code repair
-4. Missing edge cases
+    if messages[0]["role"] == "system":
+        messages.pop(0)
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=8000,
+            tools=TOOLS,
+            messages=[
+                dict(
+                    role="user" if x["role"] == "tool" else x["role"],
+                    content=x["content"],
+                )
+                for x in messages
+            ]
+            + [
+                {
+                    "role": "user",
+                    "content": """Analyze this trajectory and return a JSON object with two parts:
 
-Please provide a concise analysis of the main mistakes.""",
-                    }
-                ],
-            )
-            return response.content[0].text
-        except Exception as e:
-            return f"Error analyzing trajectory: {str(e)}"
+1. **Success Prediction**: Based on the trajectory, predict whether this was likely successful or not
+2. **Mistake Analysis**: Identify which mistake types are present (if any)
+
+**Mistake Categories:**
+1. **no_post_fix_verification** - Failed to run reproduction scripts after implementing fixes
+2. **incomplete_fix_implementation** - Addressing only part of the problem or introducing new bugs  
+3. **missing_edge_cases** - Not considering all code paths or scenarios
+4. **poor_file_management** - Leaving test files, not cleaning up, or environment issues
+5. **inadequate_reproduction** - Not properly demonstrating the issue exists
+6. **inefficient_bash_usage** - Excessive file exploration, redundant commands, or wrong tools
+7. **over_engineering** - Creating complex fixes when simple ones would work
+8. **missing_integration_testing** - Not testing within the actual framework/system context
+9. **incorrect_problem_understanding** - Misinterpreting what needs to be fixed
+10. **failed_to_follow_instructions** - Not following explicit requirements or task instructions
+11. **dependency_environment_issues** - Problems with package installation, imports, or environment setup
+12. **malformed_tool_calls** - Incorrect tool usage, syntax errors in tool parameters, or broken tool invocations
+
+**Response Format:**
+Return ONLY a valid JSON object:
+```json
+{
+  "predicted_success": true/false,
+  "confidence": "high/medium/low",
+  "no_post_fix_verification": true/false,
+  "incomplete_fix_implementation": true/false,
+  "missing_edge_cases": true/false,
+  "poor_file_management": true/false,
+  "inadequate_reproduction": true/false,
+  "inefficient_bash_usage": true/false,
+  "over_engineering": true/false,
+  "missing_integration_testing": true/false,
+  "incorrect_problem_understanding": true/false,
+  "failed_to_follow_instructions": true/false,
+  "dependency_environment_issues": true/false,
+  "malformed_tool_calls": true/false
+}
+```""",
+                }
+            ],
+        )
+        return response.content[0].text
+    except Exception as e:
+        return f"Error analyzing trajectory: {str(e)}"
 
 
-async def main():
+def main():
     basedir = Path(
         "trajectories/bmr_307qEKQLh1AMbrudtpBJE/openai/c3-sweep-tkbjm9b4-mc01-fp16"
     )
-    semaphore = asyncio.Semaphore(32)
 
-    tasks = []
     trajectories = []
     total_score = 0
 
@@ -85,8 +114,6 @@ async def main():
         print(f"\n=== Analyzing trajectory in {exampledir.name} (score: {score}) ===")
         trajectories.append((exampledir, score, turns))
         total_score += score
-        task = analyze_mistakes_with_claude(turns, semaphore)
-        tasks.append((task, exampledir))
 
     print(
         f"\nTotal score: {total_score}/{len(trajectories)} = {total_score / len(trajectories):.3f}"
@@ -94,19 +121,33 @@ async def main():
         else "No trajectories found"
     )
 
-    if tasks:
-        print(f"\nAnalyzing {len(tasks)} trajectories with Claude...")
-        task_list = [task for task, _ in tasks]
-        exampledir_list = [exampledir for _, exampledir in tasks]
+    if trajectories:
+        print(f"\nAnalyzing {len(trajectories)} trajectories with Claude...")
 
-        results = await tqdm.gather(*task_list, desc="Processing Claude analyses")
+        # Initialize error counts
+        error_counts = {
+            "no_post_fix_verification": 0,
+            "incomplete_fix_implementation": 0,
+            "missing_edge_cases": 0,
+            "poor_file_management": 0,
+            "inadequate_reproduction": 0,
+            "inefficient_bash_usage": 0,
+            "over_engineering": 0,
+            "missing_integration_testing": 0,
+            "incorrect_problem_understanding": 0,
+            "failed_to_follow_instructions": 0,
+            "dependency_environment_issues": 0,
+            "malformed_tool_calls": 0,
+        }
 
-        for result, exampledir in zip(results, exampledir_list):
-            if isinstance(result, Exception):
-                analysis = f"Error analyzing trajectory: {str(result)}"
-                print(f"Error analyzing {exampledir.name}: {str(result)}")
-            else:
-                analysis = result
+        total_mistakes_found = 0
+        correct_predictions = 0
+        total_predictions = 0
+        
+        for i, (exampledir, score, turns) in enumerate(tqdm(
+            trajectories, desc="Processing Claude analyses"
+        ), 1):
+            analysis = analyze_mistakes_with_claude(turns)
 
             print(f"Claude's Analysis for {exampledir.name}:\n{analysis}\n")
             print("=" * 80)
@@ -114,6 +155,93 @@ async def main():
             with (exampledir / "claude_analysis.txt").open("w") as f:
                 f.write(analysis)
 
+            # Try to parse as JSON and save
+            try:
+                # First try to extract JSON from markdown code blocks
+                json_match = re.search(r"```json\s*\n(.*?)\n```", analysis, re.DOTALL)
+                if json_match:
+                    json_text = json_match.group(1)
+                else:
+                    json_text = analysis
+
+                analysis_json = json.loads(json_text)
+                with (exampledir / "error_analysis.json").open("w") as f:
+                    json.dump(analysis_json, f, indent=2)
+
+                # Count errors
+                trajectory_mistakes = 0
+                trajectory_mistake_types = []
+                for error_type, is_present in analysis_json.items():
+                    if error_type in error_counts and is_present:
+                        error_counts[error_type] += 1
+                        trajectory_mistakes += 1
+                        trajectory_mistake_types.append(error_type)
+                
+                total_mistakes_found += trajectory_mistakes
+                
+                # Check prediction accuracy
+                predicted_success = analysis_json.get("predicted_success", None)
+                confidence = analysis_json.get("confidence", "unknown")
+                actual_success = score > 0
+                
+                if predicted_success is not None:
+                    total_predictions += 1
+                    if predicted_success == actual_success:
+                        correct_predictions += 1
+                        prediction_status = "✓"
+                    else:
+                        prediction_status = "✗"
+                    
+                    print(f"[{i}/{len(trajectories)}] Trajectory {exampledir.name} (Score: {score})")
+                    print(f"  Predicted: {'Success' if predicted_success else 'Failure'} ({confidence} confidence) {prediction_status}")
+                    print(f"  Actual: {'Success' if actual_success else 'Failure'}")
+                    print(f"  Mistakes found: {trajectory_mistakes} (Total: {total_mistakes_found})")
+                else:
+                    print(f"[{i}/{len(trajectories)}] Trajectory {exampledir.name} (Score: {score})")
+                    print(f"  Prediction: N/A")
+                    print(f"  Mistakes found: {trajectory_mistakes} (Total: {total_mistakes_found})")
+                
+                # Print running mistake type counts
+                if trajectory_mistake_types:
+                    print(f"  Mistake types found: {', '.join(trajectory_mistake_types)}")
+                print(f"  Running totals: ", end="")
+                active_counts = [(k, v) for k, v in error_counts.items() if v > 0]
+                if active_counts:
+                    count_strs = [f"{k}: {v}" for k, v in sorted(active_counts, key=lambda x: x[1], reverse=True)]
+                    print(", ".join(count_strs))
+                else:
+                    print("No mistakes found yet")
+                
+                if total_predictions > 0:
+                    accuracy = (correct_predictions / total_predictions) * 100
+                    print(f"  Prediction accuracy so far: {correct_predictions}/{total_predictions} ({accuracy:.1f}%)")
+                print()
+
+            except json.JSONDecodeError:
+                print(f"Warning: Could not parse JSON for {exampledir.name}")
+
+        # Print summary statistics
+        total_trajectories = len(trajectories)
+        print(f"\n{'=' * 60}")
+        print(f"SUMMARY ACROSS {total_trajectories} TRAJECTORIES")
+        print(f"{'=' * 60}")
+        
+        # Prediction accuracy summary
+        if total_predictions > 0:
+            final_accuracy = (correct_predictions / total_predictions) * 100
+            print(f"PREDICTION ACCURACY: {correct_predictions}/{total_predictions} ({final_accuracy:.1f}%)")
+            print()
+        
+        # Error summary
+        print("ERROR BREAKDOWN:")
+        for error_type, count in sorted(
+            error_counts.items(), key=lambda x: x[1], reverse=True
+        ):
+            percentage = (count / total_trajectories) * 100
+            print(f"{error_type:<35}: {count:3d} ({percentage:5.1f}%)")
+
+        print(f"{'=' * 60}")
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
