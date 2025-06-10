@@ -1,6 +1,6 @@
 # Cohere staging
-#export MODEL_NAME="openai/c3-111b-rag-sft-2aazwluv-fp8-vllm"
-export MODEL_NAME="openai/c3-sweep-tkbjm9b4-mc01-fp16"
+export MODEL_NAME="openai/c3-111b-rag-sft-2aazwluv-fp8-vllm"
+#export MODEL_NAME="openai/c3-sweep-tkbjm9b4-mc01-fp16"
 #export MODEL_NAME="openai/c3-111b-code-sft-xxs9o2iz-fp16-vllm"
 #export MODEL_NAME="openai/c3-sweep-l832wml9-hmt2-fp16"
 #export MODEL_NAME="openai/c3-sweep-gxlbwnw2-ebak-fp16"
