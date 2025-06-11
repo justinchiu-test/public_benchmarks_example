@@ -110,6 +110,7 @@ def main():
             continue
 
         turns = traj_data["history"]
+        import pdb; pdb.set_trace()
 
         print(f"\n=== Analyzing trajectory in {exampledir.name} (score: {score}) ===")
         trajectories.append((exampledir, score, turns))
