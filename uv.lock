@@ -13,7 +13,7 @@ wheels = [
 
 [[package]]
 name = "anthropic"
-version = "0.53.0"
+version = "0.54.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -24,9 +24,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c1/f6/a78ff9e23981fde136c3ae5427a39b27df92ebe5e5997c6203796449f1e5/anthropic-0.53.0.tar.gz", hash = "sha256:f5d1499fc45b2e05801fcbbeae25679f72f7479763e3c706126a7a7c8de06eff", size = 307716 }
+sdist = { url = "https://files.pythonhosted.org/packages/89/28/80cb9bb6e7ce77d404145b51da4257455805c17f0a6be528ff3286e3882f/anthropic-0.54.0.tar.gz", hash = "sha256:5e6f997d97ce8e70eac603c3ec2e7f23addeff953fbbb76b19430562bb6ba815", size = 312376 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/3f/82c21f74afa3541d69d20b8265c7fdfd078a687e9eea48fda30f1838d0b7/anthropic-0.53.0-py3-none-any.whl", hash = "sha256:b3a84751885a81d96bbddef180c3ce559c9140f7f230cdd825385405bd6d312e", size = 287248 },
+    { url = "https://files.pythonhosted.org/packages/de/b9/6ffb48e82c5e97b03cecee872d134a6b6666c2767b2d32ed709f3a60a8fe/anthropic-0.54.0-py3-none-any.whl", hash = "sha256:c1062a0a905daeec17ca9c06c401e4b3f24cb0495841d29d752568a1d4018d56", size = 288774 },
 ]
 
 [[package]]
@@ -166,7 +166,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.84.0"
+version = "1.86.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -178,9 +178,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/91/a3/128caf24e116f48fad3e4d5122cdf84db06c5127911849d51663c66158c8/openai-1.84.0.tar.gz", hash = "sha256:4caa43bdab262cc75680ce1a2322cfc01626204074f7e8d9939ab372acf61698", size = 467066 }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/7a/9ad4a61f1502f0e59d8c27fb629e28a63259a44d8d31cd2314e1534a2d9f/openai-1.86.0.tar.gz", hash = "sha256:c64d5b788359a8fdf69bd605ae804ce41c1ce2e78b8dd93e2542e0ee267f1e4b", size = 468272 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/10/f245db006a860dbc1f2e2c8382e0a1762c7753e7971ba43a1dc3f3ec1404/openai-1.84.0-py3-none-any.whl", hash = "sha256:7ec4436c3c933d68dc0f5a0cef0cb3dbc0864a54d62bddaf2ed5f3d521844711", size = 725512 },
+    { url = "https://files.pythonhosted.org/packages/58/c1/dfb16b3432810fc9758564f9d1a4dbce6b93b7fb763ba57530c7fc48316d/openai-1.86.0-py3-none-any.whl", hash = "sha256:c8889c39410621fe955c230cc4c21bfe36ec887f4e60a957de05f507d7e1f349", size = 730296 },
 ]
 
 [[package]]
@@ -196,17 +196,13 @@ dependencies = [
 ]
 
 [package.metadata]
-<<<<<<< HEAD
 requires-dist = [
     { name = "anthropic", specifier = ">=0.53.0" },
     { name = "openai", specifier = ">=1.82.1" },
     { name = "ruff", specifier = ">=0.11.11" },
-    { name = "runloop-api-client", specifier = ">=0.39.0" },
+    { name = "runloop-api-client", specifier = ">=0.40.0" },
     { name = "tqdm", specifier = ">=4.66.0" },
 ]
-=======
-requires-dist = [{ name = "runloop-api-client", specifier = ">=0.40.0" }]
->>>>>>> main
 
 [[package]]
 name = "pydantic"
