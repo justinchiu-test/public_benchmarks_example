@@ -11,4 +11,5 @@ dependencies = [
     "tqdm>=4.66.0",
     "runloop-api-client>=0.40.0",
     "datasets>=3.6.0",
+    "pyright>=1.1.402",
 ]

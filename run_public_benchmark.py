@@ -10,7 +10,7 @@ from runloop_api_client.types import ScenarioView
 from runloop_api_client.types.scenario_run_view import ScenarioRunView
 from runloop_api_client.lib.polling import PollingConfig, PollingTimeout
 
-
+POLLING_INTERVAL_SECONDS = 5
 # 10 minutes
 DEVBOX_MAX_ATTEMPTS = int(60 * 10 / POLLING_INTERVAL_SECONDS)
 # 30 minutes
@@ -178,6 +178,7 @@ async def main():
             args.model_name,
             args.max_output_tokens,
             args.timeout_secs,
+            semaphore,
             args.keep_devbox,
         )
         if result is None:
