@@ -1,7 +1,7 @@
 # Cohere staging
 #export MODEL_NAME="openai/c3-111b-rag-sft-2aazwluv-fp8-vllm"
 #export MODEL_NAME="openai/c3-sweep-tkbjm9b4-mc01-fp16"
-export MODEL_NAME="openai/c3-111b-code-sft-2iib0oqr-fp16-vllm"
+export MODEL_NAME="openai/openai/c3-111b-code-sft-2iib0oqr-fp16-vllm"
 #export MODEL_NAME="openai/c3-111b-code-sft-xxs9o2iz-fp16-vllm"
 #export MODEL_NAME="openai/c3-sweep-l832wml9-hmt2-fp16"
 #export MODEL_NAME="openai/c3-sweep-gxlbwnw2-ebak-fp16"
@@ -19,11 +19,11 @@ export CONCURRENT=16
 #export CONCURRENT=32
 
 # Qwen
-export OPENAI_API_BASE="https://api.together.xyz/v1"
-export OPENAI_API_KEY=$TOGETHER_API_KEY
-export MODEL_NAME="openai/Qwen/Qwen3-235B-A22B-fp8-tput"
-export MAX_OUTPUT_TOKENS=32000
-export CONCURRENT=16
+#export OPENAI_API_BASE="https://api.together.xyz/v1"
+#export OPENAI_API_KEY=$TOGETHER_API_KEY
+#export MODEL_NAME="openai/Qwen/Qwen3-235B-A22B-fp8-tput"
+#export MAX_OUTPUT_TOKENS=32000
+#export CONCURRENT=32
 
 # Cohere prod
 #export MODEL_NAME="command-a-03-2025"
@@ -36,13 +36,13 @@ export CONCURRENT=16
 #export OPENAI_API_KEY=$TOGETHER_API_KEY
 #export MODEL_NAME="openai/deepseek-ai/DeepSeek-V3"
 #export MAX_OUTPUT_TOKENS=32000
-#export CONCURRENT=64
+#export CONCURRENT=16
 
-#export OPENAI_API_BASE="https://api.deepseek.com"
-#export OPENAI_API_KEY=$DEEPSEEK_API_KEY
-#export MODEL_NAME="deepseek/deepseek-chat"
-#export MAX_OUTPUT_TOKENS=8192
-#export CONCURRENT=128
+export OPENAI_API_BASE="https://api.deepseek.com"
+export OPENAI_API_KEY=$DEEPSEEK_API_KEY
+export MODEL_NAME="deepseek/deepseek-chat"
+export MAX_OUTPUT_TOKENS=8192
+export CONCURRENT=128
 
 #export OPENAI_API_BASE="https://api.together.xyz/v1"
 #export OPENAI_API_KEY=$TOGETHER_API_KEY

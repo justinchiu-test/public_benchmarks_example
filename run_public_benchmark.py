@@ -300,6 +300,7 @@ async def run_scenario_with_reference_solution(
     	--agent.model.name={model_name} \
         --agent.model.per_instance_cost_limit=0 \
         --agent.model.total_cost_limit=0 \
+        --agent.model.max_input_tokens=128000 \
         --agent.model.max_output_tokens={max_output_tokens} \
     	--env.repo.type=preexisting \
     	--env.repo.repo_name="testbed"  \
@@ -337,6 +338,14 @@ async def run_scenario_with_reference_solution(
     except PollingTimeout as e:
         # on timeout, proceed to scoring (0) to mark as failed
         pass
+    except Exception as e:
+        print(f"Error running scenario, before scoring: {e}")
+
+        # Ensure we clean up the devbox on error
+        if not keep_devbox:
+            await runloop.devboxes.shutdown(id=scenario_run.devbox_id)
+
+        raise e
 
     # -------------------------------------------
 
