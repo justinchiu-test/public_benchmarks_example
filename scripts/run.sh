@@ -1,12 +1,13 @@
 # Cohere staging
 #export MODEL_NAME="openai/c3-111b-rag-sft-2aazwluv-fp8-vllm"
 #export MODEL_NAME="openai/c3-sweep-tkbjm9b4-mc01-fp16"
-export MODEL_NAME="openai/c3-111b-code-sft-2iib0oqr-fp16-vllm"
 #export MODEL_NAME="openai/c3-111b-code-sft-xxs9o2iz-fp16-vllm"
 #export MODEL_NAME="openai/c3-sweep-l832wml9-hmt2-fp16"
 #export MODEL_NAME="openai/c3-sweep-gxlbwnw2-ebak-fp16"
 #export MODEL_NAME="openai/c3-sweep-dwb071sm-zhat-fp16"
 #MODEL_NAME="openai/deepseek-r1-05-28"
+#export MODEL_NAME="openai/c3-111b-code-sft-2iib0oqr-fp16-vllm" # 139/500
+export MODEL_NAME="openai/c3-111b-code-sft-qldfa0lj-fp16-vllm" # ?/500
 export OPENAI_API_BASE="https://stg.api.cohere.ai/compatibility/v1"
 export OPENAI_API_KEY=$CO_API_KEY_STAGING
 export MAX_OUTPUT_TOKENS=8000
@@ -19,11 +20,11 @@ export CONCURRENT=16
 #export CONCURRENT=32
 
 # Qwen
-export OPENAI_API_BASE="https://api.together.xyz/v1"
-export OPENAI_API_KEY=$TOGETHER_API_KEY
-export MODEL_NAME="openai/Qwen/Qwen3-235B-A22B-fp8-tput"
-export MAX_OUTPUT_TOKENS=32000
-export CONCURRENT=16
+#export OPENAI_API_BASE="https://api.together.xyz/v1"
+#export OPENAI_API_KEY=$TOGETHER_API_KEY
+#export MODEL_NAME="openai/Qwen/Qwen3-235B-A22B-fp8-tput"
+#export MAX_OUTPUT_TOKENS=32000
+#export CONCURRENT=16
 
 # Cohere prod
 #export MODEL_NAME="command-a-03-2025"
