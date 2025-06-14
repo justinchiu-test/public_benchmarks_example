@@ -5,6 +5,6 @@ client = Runloop()
 active_devboxes = client.devboxes.list(status="running")
 for dbx in active_devboxes.devboxes:
     try:
-        api.runloop_sync_api_client.devboxes.shutdown(dbx.id)
-    except Exception:
-        print(f"failed to shutdown dbx.id={dbx.id}")
+        client.devboxes.shutdown(dbx.id)
+    except Exception as e:
+        print(f"failed to shutdown dbx.id={dbx.id}: {e}")
