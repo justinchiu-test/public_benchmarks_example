@@ -10,6 +10,7 @@
 # export MODEL_NAME="openai/c3-111b-code-sft-qldfa0lj-fp16-vllm" # 160/500
 export MODEL_NAME="openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 173/500
 # export MODEL_NAME="openai/c3-111b-code-sft-iklujits-fp16-vllm" # 155/500
+export MODEL_NAME="openai/c3-sweep-csfppp6g-fqfx-fp16" # ?/500
 export OPENAI_API_BASE="https://stg.api.cohere.ai/compatibility/v1"
 export OPENAI_API_KEY=$CO_API_KEY_STAGING
 export MAX_OUTPUT_TOKENS=8000
