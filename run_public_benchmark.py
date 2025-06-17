@@ -422,6 +422,7 @@ async def run_scenario_with_reference_solution(
         score_path.parent.mkdir(parents=True, exist_ok=True)
         with score_path.open("w") as f:
             json.dump(result.scoring_contract_result.model_dump(), f, indent=2)
+        print(f"IMPORTANT: Saved trajectory to {str(score_path)}")
 
     if not keep_devbox:
         # Step 5. We complete the scenario run. This will delete the devbox and clean up the environment.
