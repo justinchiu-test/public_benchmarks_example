@@ -295,6 +295,7 @@ async def run_scenario_with_reference_solution(
         export ANTHROPIC_API_KEY={openai_api_key} && \
         export OPENAI_API_KEY={openai_api_key} && \
         export OPENAI_API_BASE={openai_api_base} && \
+        mkdir -p /testbed/logs && \
         sweagent run \
         --config /home/user/swesmith.yaml \
     	--agent.model.name={model_name} \
