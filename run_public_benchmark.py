@@ -295,7 +295,6 @@ async def run_scenario_with_reference_solution(
         export ANTHROPIC_API_KEY={openai_api_key} && \
         export OPENAI_API_KEY={openai_api_key} && \
         export OPENAI_API_BASE={openai_api_base} && \
-        mkdir -p /testbed/logs && \
         sweagent run \
         --config /home/user/swesmith.yaml \
     	--agent.model.name={model_name} \
@@ -309,7 +308,8 @@ async def run_scenario_with_reference_solution(
     	--agent.model.api_key=$OPENAI_API_KEY \
     	--problem_statement.path="/home/user/problem_statement.txt" \
     	--problem_statement.type=text_file \
-    	--output_dir trajectories/swesmith
+    	--output_dir trajectories/swesmith && \
+        mkdir -p /testbed/logs
         """
         execution = await runloop.devboxes.execute_async(
             scenario_run.devbox_id, command=SWE_AGENT_COMMAND
