@@ -1,7 +1,7 @@
 [project]
-name = "public-benchmarks-example"
+name = "rl-sweagent"
 version = "0.1.0"
-description = "Add your description here"
+description = "A package for running public benchmarks using the Runloop API"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -13,3 +13,13 @@ dependencies = [
     "datasets>=3.6.0",
     "pyright>=1.1.402",
 ]
+
+[project.scripts]
+rl-sweagent = "rl_sweagent.run_public_benchmark:main"
+rl-list-benchmarks = "rl_sweagent.list_benchmarks:main"
+rl-create-benchmark = "rl_sweagent.create_custom_benchmark:main"
+rl-shutdown-devboxes = "rl_sweagent.shutdown_running_devboxes:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
