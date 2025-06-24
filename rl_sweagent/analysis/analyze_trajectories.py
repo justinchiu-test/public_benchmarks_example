@@ -5,7 +5,7 @@ from pathlib import Path
 from anthropic import Anthropic
 from tqdm import tqdm
 
-from tools import SWEAGENT_TOOLS_RAW
+from rl_sweagent.tools import SWEAGENT_TOOLS_RAW
 
 client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
@@ -85,15 +85,20 @@ Return an analysis of the misatkes, and then a valid JSON object:
 
 def main():
     basedir = Path(
-        #"trajectories/bmr_307qEKQLh1AMbrudtpBJE/openai/c3-sweep-tkbjm9b4-mc01-fp16"
-        "trajectories/bmr_30E9pubjh5nUCg3RXgfN8/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
+        #"trajectories/bmr_307qEKQLh1AMbrudtpBJE/openai/c3-sweep-tkbjm9b4-mc01-fp16" # i think this one is swe-verified
+        #"trajectories/bmr_30E9pubjh5nUCg3RXgfN8/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 131/356???
+        #"trajectories/bmr_30ELK7vPvQtw35dT0Nq6K/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 130/355??
+        "trajectories/bmr_30EVU63rKBHb9kK5n2pVx/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 143/351
+        #"trajectories/bmr_30EsdNYc79kYThT0n1KAw/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 138/354
+        #"trajectories/bmr_30EsdSVxuSp65kXqeFYpA/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 130/353
+        #"trajectories/bmr_30DgR3vdfdhLwoH0tF4sI/deepseek/deepseek-chat" # 119/355
+        #"trajectories/bmr_30FfKreLUBJqRJk484VPB/deepseek/deepseek-chat" # 130/355
     )
 
     trajectories = []
     total_score = 0
 
     for exampledir in basedir.iterdir():
-        print(list(exampledir.iterdir()))
         with (exampledir / "score.json").open("r") as f:
             score = json.load(f)["score"]
         traj_data = None
@@ -111,9 +116,8 @@ def main():
             continue
 
         turns = traj_data["history"]
-        import pdb; pdb.set_trace()
 
-        print(f"\n=== Analyzing trajectory in {exampledir.name} (score: {score}) ===")
+        #print(f"\n=== Analyzing trajectory in {exampledir.name} (score: {score}) ===")
         trajectories.append((exampledir, score, turns))
         total_score += score
 
