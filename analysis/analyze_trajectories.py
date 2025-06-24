@@ -85,7 +85,8 @@ Return an analysis of the misatkes, and then a valid JSON object:
 
 def main():
     basedir = Path(
-        "trajectories/bmr_307qEKQLh1AMbrudtpBJE/openai/c3-sweep-tkbjm9b4-mc01-fp16"
+        #"trajectories/bmr_307qEKQLh1AMbrudtpBJE/openai/c3-sweep-tkbjm9b4-mc01-fp16"
+        "trajectories/bmr_30E9pubjh5nUCg3RXgfN8/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
     )
 
     trajectories = []
@@ -121,6 +122,7 @@ def main():
         if trajectories
         else "No trajectories found"
     )
+    import pdb; pdb.set_trace()
 
     if trajectories:
         print(f"\nAnalyzing {len(trajectories)} trajectories with Claude...")
