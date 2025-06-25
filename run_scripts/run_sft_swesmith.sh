@@ -75,7 +75,7 @@ export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10swesmit
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_thoughtaction_lastn.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn_oh.yaml
 
-uv run run_public_benchmark.py \
+uv run rl_sweagent/run_public_benchmark.py \
     --benchmark-id bmd_30CcB9EompRi7i7t7srf2 \
     --config-path $CONFIG \
     --timeout-secs 1200 \

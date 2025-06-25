@@ -115,6 +115,7 @@ async def main():
                 attempt_scenario_run_with_golden_patch(
                     runloop,
                     id,
+                    benchmark_run.name.replace(" ", ""),
                     benchmark_run.id,
                     Path(args.config_path),
                     args.openai_api_base,
@@ -172,6 +173,7 @@ async def main():
             runloop,
             scenario_id,
             None,
+            None,
             Path(args.config_path),
             args.openai_api_base,
             args.openai_api_key,
@@ -194,6 +196,7 @@ async def main():
 async def attempt_scenario_run_with_golden_patch(
     runloop: AsyncRunloop,
     scenario_id: str,
+    benchmark_run_name: str | None,
     benchmark_run_id: str | None,
     config_path: Path,
     openai_api_base: str,
@@ -217,6 +220,7 @@ async def attempt_scenario_run_with_golden_patch(
             run = await run_scenario_with_reference_solution(
                 runloop,
                 scenario,
+                benchmark_run_name,
                 benchmark_run_id,
                 config_path,
                 openai_api_base,
@@ -234,6 +238,7 @@ async def attempt_scenario_run_with_golden_patch(
 async def run_scenario_with_reference_solution(
     runloop: AsyncRunloop,
     scenario: ScenarioView,
+    benchmark_run_name: str | None,
     benchmark_run_id: str | None,
     config_path: Path,
     openai_api_base: str,
@@ -387,7 +392,7 @@ async def run_scenario_with_reference_solution(
         )
         ls_output = ls_execution_state.stdout
         devbox_path_list = ls_output.split()
-        data_name = benchmark_run_id or scenario_run.benchmark_run_id or "singleton"
+        data_name = benchmark_run_name or "singleton"
         # Then, copy them over
         for remote_path in devbox_path_list:
             name = Path(remote_path).name
