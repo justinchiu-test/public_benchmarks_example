@@ -5,11 +5,11 @@
 # MODEL_NAME = "openai/c3-sweep-gxlbwnw2-ebak-fp16"
 # MODEL_NAME = "openai/c3-sweep-dwb071sm-zhat-fp16"
 #export MODEL_NAME="openai/c3-111b-code-sft-2iib0oqr-fp16-vllm"
-export MODEL_NAME="openai/c3-111b-code-sft-souwe4re-fp16-vllm"
+#export MODEL_NAME="openai/c3-111b-code-sft-souwe4re-fp16-vllm"
 export OPENAI_API_BASE="https://stg.api.cohere.ai/compatibility/v1"
 export OPENAI_API_KEY=$CO_API_KEY_STAGING
-export CONCURRENT=4
-export MAX_OUTPUT_TOKENS=8000
+#export CONCURRENT=4
+#export MAX_OUTPUT_TOKENS=8000
 
 # Qwen
 #export OPENAI_API_BASE="https://api.together.xyz/v1"
@@ -20,10 +20,10 @@ export MAX_OUTPUT_TOKENS=8000
 #export CONCURRENT=32
 
 # Claude
-#export OPENAI_API_KEY=$ANTHROPIC_API_KEY
-#export MODEL_NAME="claude-sonnet-4-20250514"
-#export MAX_OUTPUT_TOKENS=8000
-#export CONCURRENT=16
+export OPENAI_API_KEY=$ANTHROPIC_API_KEY
+export MODEL_NAME="claude-sonnet-4-20250514"
+export MAX_OUTPUT_TOKENS=8000
+export CONCURRENT=16
 
 # DS
 #export OPENAI_API_BASE="https://api.together.xyz/v1"
@@ -51,14 +51,14 @@ export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn_oh.yaml
 
 uv run rl_sweagent/run_public_benchmark.py \
-    --scenario-id scn_306hjRxQOkg4BNxdgIeQM \
+    --scenario-id scn_306hoO6eQjXqgGLvEFG5H \
     --config-path $CONFIG \
     --timeout-secs 1200 \
     --concurrent_runs $CONCURRENT \
     --openai-api-base $OPENAI_API_BASE \
     --openai-api-key $OPENAI_API_KEY \
     --model-name $MODEL_NAME \
-    --max_output_tokens $MAX_OUTPUT_TOKENS #--keep-devbox
+    --max_output_tokens $MAX_OUTPUT_TOKENS --keep-devbox
 
 echo $CONFIG
 echo $MODEL_NAME

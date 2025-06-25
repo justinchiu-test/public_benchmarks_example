@@ -308,6 +308,7 @@ async def run_scenario_with_reference_solution(
     	--agent.model.api_key=$OPENAI_API_KEY \
     	--problem_statement.path="/home/user/problem_statement.txt" \
     	--problem_statement.type=text_file \
+    	--problem_statement.id={scenario.name} \
     	--output_dir trajectories/swesmith && \
         mkdir -p /testbed/logs
         """
