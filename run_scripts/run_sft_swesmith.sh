@@ -13,7 +13,7 @@ export MODEL_NAME="openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 173/500
 export OPENAI_API_BASE="https://stg.api.cohere.ai/compatibility/v1"
 export OPENAI_API_KEY=$CO_API_KEY_STAGING
 export MAX_OUTPUT_TOKENS=8000
-export CONCURRENT=16
+export CONCURRENT=64
 
 # Claude
 #export OPENAI_API_KEY=$ANTHROPIC_API_KEY
