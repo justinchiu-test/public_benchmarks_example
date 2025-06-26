@@ -29,7 +29,7 @@ def analyze_mistakes_with_claude(messages):
             messages=[
                 dict(
                     role="user" if x["role"] == "tool" else x["role"],
-                    content=x["content"],
+                    content=x["content"] if x["content"] != "" else "No content, only tool call",
                 )
                 for x in messages
             ]
@@ -88,11 +88,13 @@ def main():
         #"trajectories/bmr_307qEKQLh1AMbrudtpBJE/openai/c3-sweep-tkbjm9b4-mc01-fp16" # i think this one is swe-verified
         #"trajectories/bmr_30E9pubjh5nUCg3RXgfN8/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 131/356???
         #"trajectories/bmr_30ELK7vPvQtw35dT0Nq6K/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 130/355??
-        "trajectories/bmr_30EVU63rKBHb9kK5n2pVx/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 143/351
+        #"trajectories/bmr_30EVU63rKBHb9kK5n2pVx/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 143/351
         #"trajectories/bmr_30EsdNYc79kYThT0n1KAw/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 138/354
         #"trajectories/bmr_30EsdSVxuSp65kXqeFYpA/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 130/353
         #"trajectories/bmr_30DgR3vdfdhLwoH0tF4sI/deepseek/deepseek-chat" # 119/355
         #"trajectories/bmr_30FfKreLUBJqRJk484VPB/deepseek/deepseek-chat" # 130/355
+        "trajectories/scoped-fast-sample-SWE-bench/SWE-smith-2025-06-25-03-36-18/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
+        #"trajectories/scoped-fast-sample-SWE-bench/SWE-smith-2025-06-25-13-22-52/claude-sonnet-4-20250514"
     )
 
     trajectories = []
@@ -126,7 +128,7 @@ def main():
         if trajectories
         else "No trajectories found"
     )
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
 
     if trajectories:
         print(f"\nAnalyzing {len(trajectories)} trajectories with Claude...")
@@ -150,7 +152,7 @@ def main():
         total_mistakes_found = 0
         correct_predictions = 0
         total_predictions = 0
-        
+
         for i, (exampledir, score, turns) in enumerate(tqdm(
             trajectories, desc="Processing Claude analyses"
         ), 1):
@@ -183,14 +185,14 @@ def main():
                         error_counts[error_type] += 1
                         trajectory_mistakes += 1
                         trajectory_mistake_types.append(error_type)
-                
+
                 total_mistakes_found += trajectory_mistakes
-                
+
                 # Check prediction accuracy
                 predicted_success = analysis_json.get("predicted_success", None)
                 confidence = analysis_json.get("confidence", "unknown")
                 actual_success = score > 0
-                
+
                 if predicted_success is not None:
                     total_predictions += 1
                     if predicted_success == actual_success:
@@ -198,7 +200,7 @@ def main():
                         prediction_status = "✓"
                     else:
                         prediction_status = "✗"
-                    
+
                     print(f"[{i}/{len(trajectories)}] Trajectory {exampledir.name} (Score: {score})")
                     print(f"  Predicted: {'Success' if predicted_success else 'Failure'} ({confidence} confidence) {prediction_status}")
                     print(f"  Actual: {'Success' if actual_success else 'Failure'}")
@@ -207,7 +209,7 @@ def main():
                     print(f"[{i}/{len(trajectories)}] Trajectory {exampledir.name} (Score: {score})")
                     print(f"  Prediction: N/A")
                     print(f"  Mistakes found: {trajectory_mistakes} (Total: {total_mistakes_found})")
-                
+
                 # Print running mistake type counts
                 if trajectory_mistake_types:
                     print(f"  Mistake types found: {', '.join(trajectory_mistake_types)}")
@@ -218,7 +220,7 @@ def main():
                     print(", ".join(count_strs))
                 else:
                     print("No mistakes found yet")
-                
+
                 if total_predictions > 0:
                     accuracy = (correct_predictions / total_predictions) * 100
                     print(f"  Prediction accuracy so far: {correct_predictions}/{total_predictions} ({accuracy:.1f}%)")
@@ -232,13 +234,13 @@ def main():
         print(f"\n{'=' * 60}")
         print(f"SUMMARY ACROSS {total_trajectories} TRAJECTORIES")
         print(f"{'=' * 60}")
-        
+
         # Prediction accuracy summary
         if total_predictions > 0:
             final_accuracy = (correct_predictions / total_predictions) * 100
             print(f"PREDICTION ACCURACY: {correct_predictions}/{total_predictions} ({final_accuracy:.1f}%)")
             print()
-        
+
         # Error summary
         print("ERROR BREAKDOWN:")
         for error_type, count in sorted(
