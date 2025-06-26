@@ -54,6 +54,7 @@ def analyze_mistakes_with_claude(messages):
 10. **failed_to_follow_instructions** - Not following explicit requirements or task instructions
 11. **dependency_environment_issues** - Problems with package installation, imports, or environment setup
 12. **malformed_tool_calls** - Incorrect tool usage, syntax errors in tool parameters, or broken tool invocations
+13. **empty_prompts** - Using empty, null, or meaningless prompts that don't provide useful information
 
 **Response Format:**
 Return an analysis of the misatkes, and then a valid JSON object:
@@ -72,7 +73,8 @@ Return an analysis of the misatkes, and then a valid JSON object:
   "incorrect_problem_understanding": true/false,
   "failed_to_follow_instructions": true/false,
   "dependency_environment_issues": true/false,
-  "malformed_tool_calls": true/false
+  "malformed_tool_calls": true/false,
+  "empty_prompts": true/false
 }
 ```""",
                 }
@@ -147,6 +149,7 @@ def main():
             "failed_to_follow_instructions": 0,
             "dependency_environment_issues": 0,
             "malformed_tool_calls": 0,
+            "empty_prompts": 0,
         }
 
         total_mistakes_found = 0
