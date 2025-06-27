@@ -95,8 +95,12 @@ def main():
         #"trajectories/bmr_30EsdSVxuSp65kXqeFYpA/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 130/353
         #"trajectories/bmr_30DgR3vdfdhLwoH0tF4sI/deepseek/deepseek-chat" # 119/355
         #"trajectories/bmr_30FfKreLUBJqRJk484VPB/deepseek/deepseek-chat" # 130/355
-        "trajectories/scoped-fast-sample-SWE-bench/SWE-smith-2025-06-25-03-36-18/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
+        #"trajectories/scoped-fast-sample-SWE-bench/SWE-smith-2025-06-25-03-36-18/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
         #"trajectories/scoped-fast-sample-SWE-bench/SWE-smith-2025-06-25-13-22-52/claude-sonnet-4-20250514"
+        # full swesmith, but temperature 1 results in bad trajecotires. likely due to undertraining
+        #"trajectories/SWE-bench/SWE-smith-2025-06-26-05-15-47/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
+        # full swesmith greedy?
+        "trajectories/SWE-bench/SWE-smith-2025-06-26-22-39-27/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
     )
 
     trajectories = []
@@ -130,7 +134,7 @@ def main():
         if trajectories
         else "No trajectories found"
     )
-    #import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
 
     if trajectories:
         print(f"\nAnalyzing {len(trajectories)} trajectories with Claude...")
