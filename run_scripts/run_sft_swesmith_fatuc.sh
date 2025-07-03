@@ -8,14 +8,12 @@
 #MODEL_NAME="openai/deepseek-r1-05-28"
 #export MODEL_NAME="openai/c3-111b-code-sft-2iib0oqr-fp16-vllm" # 139/500
 # export MODEL_NAME="openai/c3-111b-code-sft-qldfa0lj-fp16-vllm" # 160/500
-export MODEL_NAME="rawco/c3-111b-code-sft-souwe4re-fp16-vllm" # 173/500, 157/500 (FATUC)
+export MODEL_NAME="openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 173/500
 # export MODEL_NAME="openai/c3-111b-code-sft-iklujits-fp16-vllm" # 155/500
-#export MODEL_NAME="openai/c3-sweep-csfppp6g-fqfx-fp16" # ?/500
-#export OPENAI_API_BASE="https://stg.api.cohere.ai/compatibility/v1"
-export OPENAI_API_BASE="https://stg.api.cohere.ai/v1"
+export OPENAI_API_BASE="https://stg.api.cohere.ai/compatibility/v1"
 export OPENAI_API_KEY=$CO_API_KEY_STAGING
 export MAX_OUTPUT_TOKENS=8000
-export CONCURRENT=16
+export CONCURRENT=32
 
 # Claude
 #export OPENAI_API_KEY=$ANTHROPIC_API_KEY
@@ -73,13 +71,13 @@ export CONCURRENT=16
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_thought_action.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_xml.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn.yaml
-#export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10swesmith_temp0.yaml
+#export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10swesmith.yaml
 export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10swesmith_temp0_fatuc.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_thoughtaction_lastn.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn_oh.yaml
 
 uv run rl_sweagent/run_public_benchmark.py \
-    --benchmark-id bmd_2zmp3Mu3LhWu7yDVIfq3m \
+    --benchmark-id bmd_3056xc0UoFk0xSyRKtfqC \
     --config-path $CONFIG \
     --timeout-secs 1200 \
     --concurrent_runs $CONCURRENT \
