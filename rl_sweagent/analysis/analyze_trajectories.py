@@ -101,7 +101,9 @@ def main():
         #"trajectories/SWE-bench/SWE-smith-2025-06-26-05-15-47/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
         # full swesmith greedy?
         #"trajectories/SWE-bench/SWE-smith-2025-06-27-19-24-13/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
-        "trajectories/princeton-nlp/SWE-bench_Verified-2025-07-02-17-19-25/rawco/c3-111b-code-sft-souwe4re-fp16-vllm/"
+        #"trajectories/princeton-nlp/SWE-bench_Verified-2025-07-02-17-19-25/rawco/c3-111b-code-sft-souwe4re-fp16-vllm/"
+        #"trajectories/princeton-nlp/SWE-bench_Verified-2025-07-03-18-10-44/rawco/c3-sweep-ecsydrkq-690h-fp16"
+        "trajectories/princeton-nlp/SWE-bench_Verified-2025-07-04-00-29-22/co/c3-sweep-ecsydrkq-690h-fp16"
     )
 
     trajectories = []
