@@ -77,7 +77,7 @@ export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn_oh.yaml
 
 uv run rl_sweagent/run_public_benchmark.py \
-    --benchmark-id bmd_3056xc0UoFk0xSyRKtfqC \
+    --benchmark-id bmd_30OwC7ZxCbVkpMu0hyNPx \
     --config-path $CONFIG \
     --timeout-secs 1200 \
     --concurrent_runs $CONCURRENT \

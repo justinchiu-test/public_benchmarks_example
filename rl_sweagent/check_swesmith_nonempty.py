@@ -38,7 +38,6 @@ async def main():
     final_scenario_ids = [x for x in scenarios if x is not None]
     print(f"Found {len(final_scenario_ids)} scenarios")
 
-    import pdb; pdb.set_trace()
 
 if __name__ == "__main__":
     asyncio.run(main())
