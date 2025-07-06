@@ -1,6 +1,9 @@
-"""Create a subset of a benchmark with desired properties."""
+"""Create a subset of swesmith with non-empty prompts."""
 
 import asyncio
+import csv
+import glob
+from tqdm.asyncio import tqdm
 from runloop_api_client import NOT_GIVEN, AsyncRunloop, NotGiven
 from runloop_api_client.types import ScenarioView
 
@@ -11,15 +14,16 @@ benchmark_id = "bmd_3056xc0UoFk0xSyRKtfqC"
 cloned_name = "swesmith-nonempty"
 
 
-async def list_all_scenarios(search_string: str) -> list[ScenarioView]:
-    scenarios: list[ScenarioView] = []
+async def list_all_scenarios(benchmark_id: str, instance_ids: set[str]) -> list[ScenarioView]:
+    scenario_ids: list[str] = []
     starting_after: str | NotGiven = NOT_GIVEN
     while True:
-        scenarios_response = await runloop_api.scenarios.list_public(
-            extra_query={"search": f"{search_string}"},
+        scenarios_response = await runloop_api.scenarios.list(
+            benchmark_id=benchmark_id,
             limit=100,
             starting_after=starting_after,
         )
+        import pdb; pdb.set_trace()
         scenarios.extend(scenarios_response.scenarios)
         if not scenarios_response.has_more:
             break
@@ -32,39 +36,28 @@ async def list_all_scenarios(search_string: str) -> list[ScenarioView]:
 async def main():
     benchmark = await runloop_api.benchmarks.retrieve(benchmark_id)
 
-    # Example search queries gather a set of scenarios that score relatively fast (less than 60 seconds)
-    search_queries = [
-        "lincolnloop__python-qrcode",
-        "jd__tenacity",
-        "jaraco__inflect",
-        "pwaller__pyfiglet",
-        "john-kurkowski__tldextract",
-        "agronholm__exceptiongroup",
-        "theskumar__python-dotenv",
-        "aio-libs__async-timeout",
-        "agronholm__exceptiongroup",
-    ]
+    # Load instance_id from CSV file in data directory
+    # these are the NAMES in scenario.name = isntance_id
+    instance_ids = set()
+    with open("data/swesmith_nonempty.csv", 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if "instance_id" in row:
+                instance_ids.add(row["instance_id"])
+
+    print(f"Loaded {len(instance_ids)} instance ids to intersect with benchmark scenario ids")
 
     benchmark_scenario_ids = set([id for id in benchmark.scenario_ids])
 
-    scoped_scenarios: list[ScenarioView] = []
-    for search_query in search_queries:
-        query_scenarios = await list_all_scenarios(search_query)
+    async def retrieve_scenario(scenario_id: str, instance_ids: set[str], semaphore) -> str | None:
+        async with semaphore:
+            scenario_view = await runloop_api.scenarios.retrieve(scenario_id)
+            return scenario_id if scenario_view.name in instance_ids else None
 
-        print(f"found {len(query_scenarios)} scenarios matching search: {search_query}")
-        scoped_scenarios.extend(query_scenarios)
-
-    # Filter scenarios to only include those whose IDs are in benchmark_scenario_ids set
-    final_scenarios = [
-        scenario
-        for scenario in scoped_scenarios
-        if scenario.id in benchmark_scenario_ids
-    ]
-
-    print(f"benchmark contains {len(benchmark_scenario_ids)} scenarios")
-    print(
-        f"matched {len(final_scenarios)} scenarios out of {len(scoped_scenarios)} total scenarios"
-    )
+    semaphore = asyncio.Semaphore(128)
+    scenarios = await tqdm.gather(*[retrieve_scenario(scenario_id, instance_ids, semaphore) for scenario_id in benchmark_scenario_ids], desc="Retrieving scenarios")
+    final_scenario_ids = [x for x in scenarios if x is not None]
+    print(f"Found {len(final_scenario_ids)} scenarios")
 
     response = input("create new benchmark? (y/n)")
     if response == "y":
@@ -79,7 +72,7 @@ async def main():
             await runloop_api.benchmarks.update(
                 id=existing_benchmarks.benchmarks[0].id,
                 name=name,
-                scenario_ids=[scenario.id for scenario in final_scenarios],
+                scenario_ids=final_scenario_ids,
             )
             print(f"benchmark updated: {existing_benchmarks.benchmarks[0].id}")
             return
@@ -88,7 +81,7 @@ async def main():
 
             new_benchmark = await runloop_api.benchmarks.create(
                 name=name,
-                scenario_ids=[scenario.id for scenario in final_scenarios],
+                scenario_ids=final_scenario_ids,
             )
             print(f"new benchmark created: {new_benchmark.id}")
 
