@@ -13,6 +13,8 @@ wheels/
 trajectories/
 devbox_ids.txt
 devbox_output.txt
+data/
 
 # Node
 node_modules/
+
