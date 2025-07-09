@@ -67,8 +67,8 @@ export CONCURRENT=32
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_backticks.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_thought_action.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_xml.yaml
-#export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn.yaml
-export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10swesmith.yaml
+export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn.yaml
+#export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10swesmith_temp0.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_thoughtaction_lastn.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn_oh.yaml
 
