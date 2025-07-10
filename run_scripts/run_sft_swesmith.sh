@@ -15,7 +15,7 @@ export MODEL_NAME="co/c3-sweep-ecsydrkq-690h-fp16" # 193/500 (FC) 188 (RAW)
 export OPENAI_API_BASE="https://stg.api.cohere.ai/v1"
 export OPENAI_API_KEY=$CO_API_KEY_STAGING
 export MAX_OUTPUT_TOKENS=8000
-export CONCURRENT=32
+export CONCURRENT=64
 
 # Claude
 #export OPENAI_API_KEY=$ANTHROPIC_API_KEY
@@ -74,7 +74,7 @@ export CONCURRENT=32
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_xml.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10swesmith.yaml
-export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10swesmith_temp0.yaml
+export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_last10swesmith_temp05.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_thoughtaction_lastn.yaml
 #export CONFIG=/home/justinchiu_cohere_com/SWE-agent/config/default_lastn_oh.yaml
 
