@@ -105,9 +105,15 @@ def main():
         #"trajectories/princeton-nlp/SWE-bench_Verified-2025-07-03-18-10-44/rawco/c3-sweep-ecsydrkq-690h-fp16"
         #"trajectories/princeton-nlp/SWE-bench_Verified-2025-07-04-00-29-22/co/c3-sweep-ecsydrkq-690h-fp16"
         # swesmith
-        "trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-06-21-56-58/co/c3-sweep-ecsydrkq-690h-fp16"
+        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-06-21-56-58/co/c3-sweep-ecsydrkq-690h-fp16"
         #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-06-21-39-06/deepseek/deepseek-chat"
         #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-06-21-41-52/claude-sonnet-4-20250514/"
+        # swesmith 7/13
+        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-45/co/c3-sweep-ecsydrkq-690h-fp16" 
+        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-46/co/c3-sweep-ecsydrkq-690h-fp16" 
+        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-51/co/c3-sweep-ecsydrkq-690h-fp16" 
+        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-52/co/c3-sweep-ecsydrkq-690h-fp16"
+        # EVERYTHING TIMES OUT
     )
 
     trajectories = []
