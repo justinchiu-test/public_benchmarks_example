@@ -250,7 +250,7 @@ exit 0
             ("cd /testbed && git remote -v || echo 'No remotes'", "Git remotes"),
             # Check conda environment
             (
-                "source /opt/miniconda3/bin/activate && conda env list",
+                "unset PYTHONPATH && source /opt/miniconda3/bin/activate && conda env list",
                 "Conda environments",
             ),
             (
@@ -287,8 +287,7 @@ exit 0
                     print(f"[{instance_id}]    stderr: {result.stderr.strip()}")
                 all_passed = False
             else:
-                # Get first line of output
-                output = result.stdout.strip().split("\n")[0] if result.stdout else "OK"
+                output = result.stdout.strip() if result.stdout else "OK"
                 print(f"[{instance_id}] ✓ {description}: {output}")
 
         if not all_passed:
