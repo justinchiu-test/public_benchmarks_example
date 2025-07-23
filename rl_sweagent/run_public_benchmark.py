@@ -1,14 +1,14 @@
-import asyncio
 import argparse
-from dataclasses import dataclass
+import asyncio
 import json
-from typing import Optional
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 from runloop_api_client import AsyncRunloop
+from runloop_api_client.lib.polling import PollingConfig, PollingTimeout
 from runloop_api_client.types import ScenarioView
 from runloop_api_client.types.scenario_run_view import ScenarioRunView
-from runloop_api_client.lib.polling import PollingConfig, PollingTimeout
 
 POLLING_INTERVAL_SECONDS = 5
 # 10 minutes
@@ -286,7 +286,7 @@ async def run_scenario_with_reference_solution(
         prepare_swe_agent_command = await runloop.devboxes.execute_sync(
             id=scenario_run.devbox_id,
             command="git clone -b coagent --depth 1 https://github.com/justinchiu-test/SWE-agent && cd SWE-agent && uv venv && source .venv/bin/activate && uv pip install -e .",
-            #command=f"git clone -b update --depth 1 https://{GITHUB_TOKEN}@github.com/cohere-ai/internal-SWE-agent && cd SWE-agent && uv venv && source .venv/bin/activate && uv pip install -e .",
+            # command=f"git clone -b update --depth 1 https://{GITHUB_TOKEN}@github.com/cohere-ai/internal-SWE-agent && cd SWE-agent && uv venv && source .venv/bin/activate && uv pip install -e .",
         )
         if prepare_swe_agent_command.exit_status != 0:
             raise Exception(
@@ -303,19 +303,19 @@ async def run_scenario_with_reference_solution(
         export OPENAI_API_BASE={openai_api_base} && \
         sweagent run \
         --config /home/user/swesmith.yaml \
-    	--agent.model.name={model_name} \
+        --agent.model.name={model_name} \
         --agent.model.per_instance_cost_limit=0 \
         --agent.model.total_cost_limit=0 \
         --agent.model.max_input_tokens=128000 \
         --agent.model.max_output_tokens={max_output_tokens} \
-    	--env.repo.type=preexisting \
-    	--env.repo.repo_name="testbed"  \
-    	--env.deployment.type=local \
-    	--agent.model.api_key=$OPENAI_API_KEY \
-    	--problem_statement.path="/home/user/problem_statement.txt" \
-    	--problem_statement.type=text_file \
-    	--problem_statement.id={scenario.name} \
-    	--output_dir trajectories/swesmith && \
+        --env.repo.type=preexisting \
+        --env.repo.repo_name="testbed"  \
+        --env.deployment.type=local \
+        --agent.model.api_key=$OPENAI_API_KEY \
+        --problem_statement.path="/home/user/problem_statement.txt" \
+        --problem_statement.type=text_file \
+        --problem_statement.id={scenario.name} \
+        --output_dir trajectories/swesmith && \
         mkdir -p /testbed/logs
         """
         execution = await runloop.devboxes.execute_async(
@@ -343,7 +343,7 @@ async def run_scenario_with_reference_solution(
             raise Exception(
                 f"SWE agent failed to run. Exit status: {final_execution_state.exit_status}"
             )
-    except PollingTimeout as e:
+    except PollingTimeout:
         # on timeout, proceed to scoring (0) to mark as failed
         pass
     except Exception as e:
@@ -367,7 +367,9 @@ async def run_scenario_with_reference_solution(
             ),
         )
         score = (
-            result.scoring_contract_result.score if result.scoring_contract_result else None
+            result.scoring_contract_result.score
+            if result.scoring_contract_result
+            else None
         )
         print(f"Scoring result: id={result.id} score={score}")
     except Exception as e:

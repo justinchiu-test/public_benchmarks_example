@@ -4,11 +4,11 @@ Standalone script to replay the first interaction from a SWE-agent trajectory.
 Extracts system prompt, user query, and tools from trajectory and config files.
 """
 
-import json
-import os
 import argparse
+import os
+from typing import Any, Dict, List
+
 from openai import OpenAI
-from typing import Dict, List, Any
 
 
 def get_swe_agent_tools() -> List[Dict[str, Any]]:
@@ -109,7 +109,10 @@ def get_trajectory_messages() -> List[Dict[str, str]]:
 
 
 def send_openai_request(
-    messages: List[Dict[str, str]], tools: List[Dict[str, Any]], model: str, provider: str
+    messages: List[Dict[str, str]],
+    tools: List[Dict[str, Any]],
+    model: str,
+    provider: str,
 ) -> Dict[str, Any]:
     """Send request to OpenAI API with extracted messages and tools."""
 
@@ -150,12 +153,14 @@ def send_openai_request(
 
 def main():
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Replay SWE-agent trajectory with different providers")
+    parser = argparse.ArgumentParser(
+        description="Replay SWE-agent trajectory with different providers"
+    )
     parser.add_argument(
-        "--provider", 
-        choices=["together", "deepseek"], 
+        "--provider",
+        choices=["together", "deepseek"],
         default="deepseek",
-        help="API provider to use (default: deepseek)"
+        help="API provider to use (default: deepseek)",
     )
     args = parser.parse_args()
 
@@ -176,7 +181,7 @@ def main():
             else f"Content: {msg['content']}"
         )
 
-    print(f"\n=== EXTRACTED TOOLS ===")
+    print("\n=== EXTRACTED TOOLS ===")
     print(f"Number of tools: {len(tools)}")
     for tool in tools:
         print(
@@ -211,12 +216,12 @@ def main():
         print("✅ Request successful!")
         print(f"\nModel: {result['response'].model}")
         print(f"Usage: {result['usage']}")
-        print(f"\nResponse message:")
+        print("\nResponse message:")
         print(f"Role: {result['message'].role}")
         print(f"Content: {result['message'].content}")
 
         if result["message"].tool_calls:
-            print(f"\nTool calls:")
+            print("\nTool calls:")
             for tool_call in result["message"].tool_calls:
                 print(f"- {tool_call.function.name}: {tool_call.function.arguments}")
         else:

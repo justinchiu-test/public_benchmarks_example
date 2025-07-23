@@ -2,6 +2,7 @@ import json
 import os
 import re
 from pathlib import Path
+
 from anthropic import Anthropic
 from tqdm import tqdm
 
@@ -29,7 +30,9 @@ def analyze_mistakes_with_claude(messages):
             messages=[
                 dict(
                     role="user" if x["role"] == "tool" else x["role"],
-                    content=x["content"] if x["content"] != "" else "No content, only tool call",
+                    content=x["content"]
+                    if x["content"] != ""
+                    else "No content, only tool call",
                 )
                 for x in messages
             ]
@@ -43,7 +46,7 @@ def analyze_mistakes_with_claude(messages):
 
 **Mistake Categories:**
 1. **no_post_fix_verification** - Failed to run reproduction scripts after implementing fixes
-2. **incomplete_fix_implementation** - Addressing only part of the problem or introducing new bugs  
+2. **incomplete_fix_implementation** - Addressing only part of the problem or introducing new bugs
 3. **missing_edge_cases** - Not considering all code paths or scenarios
 4. **poor_file_management** - Leaving test files, not cleaning up, or environment issues
 5. **inadequate_reproduction** - Not properly demonstrating the issue exists
@@ -87,32 +90,32 @@ Return an analysis of the misatkes, and then a valid JSON object:
 
 def main():
     basedir = Path(
-        #"trajectories/bmr_307qEKQLh1AMbrudtpBJE/openai/c3-sweep-tkbjm9b4-mc01-fp16" # i think this one is swe-verified
-        #"trajectories/bmr_30E9pubjh5nUCg3RXgfN8/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 131/356???
-        #"trajectories/bmr_30ELK7vPvQtw35dT0Nq6K/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 130/355??
-        #"trajectories/bmr_30EVU63rKBHb9kK5n2pVx/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 143/351
-        #"trajectories/bmr_30EsdNYc79kYThT0n1KAw/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 138/354
-        #"trajectories/bmr_30EsdSVxuSp65kXqeFYpA/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 130/353
-        #"trajectories/bmr_30DgR3vdfdhLwoH0tF4sI/deepseek/deepseek-chat" # 119/355
-        #"trajectories/bmr_30FfKreLUBJqRJk484VPB/deepseek/deepseek-chat" # 130/355
-        #"trajectories/scoped-fast-sample-SWE-bench/SWE-smith-2025-06-25-03-36-18/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
-        #"trajectories/scoped-fast-sample-SWE-bench/SWE-smith-2025-06-25-13-22-52/claude-sonnet-4-20250514"
+        # "trajectories/bmr_307qEKQLh1AMbrudtpBJE/openai/c3-sweep-tkbjm9b4-mc01-fp16" # i think this one is swe-verified
+        # "trajectories/bmr_30E9pubjh5nUCg3RXgfN8/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 131/356???
+        # "trajectories/bmr_30ELK7vPvQtw35dT0Nq6K/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 130/355??
+        # "trajectories/bmr_30EVU63rKBHb9kK5n2pVx/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 143/351
+        # "trajectories/bmr_30EsdNYc79kYThT0n1KAw/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 138/354
+        # "trajectories/bmr_30EsdSVxuSp65kXqeFYpA/openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 130/353
+        # "trajectories/bmr_30DgR3vdfdhLwoH0tF4sI/deepseek/deepseek-chat" # 119/355
+        # "trajectories/bmr_30FfKreLUBJqRJk484VPB/deepseek/deepseek-chat" # 130/355
+        # "trajectories/scoped-fast-sample-SWE-bench/SWE-smith-2025-06-25-03-36-18/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
+        # "trajectories/scoped-fast-sample-SWE-bench/SWE-smith-2025-06-25-13-22-52/claude-sonnet-4-20250514"
         # full swesmith, but temperature 1 results in bad trajecotires. likely due to undertraining
-        #"trajectories/SWE-bench/SWE-smith-2025-06-26-05-15-47/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
+        # "trajectories/SWE-bench/SWE-smith-2025-06-26-05-15-47/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
         # full swesmith greedy?
-        #"trajectories/SWE-bench/SWE-smith-2025-06-27-19-24-13/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
-        #"trajectories/princeton-nlp/SWE-bench_Verified-2025-07-02-17-19-25/rawco/c3-111b-code-sft-souwe4re-fp16-vllm/"
-        #"trajectories/princeton-nlp/SWE-bench_Verified-2025-07-03-18-10-44/rawco/c3-sweep-ecsydrkq-690h-fp16"
-        #"trajectories/princeton-nlp/SWE-bench_Verified-2025-07-04-00-29-22/co/c3-sweep-ecsydrkq-690h-fp16"
+        # "trajectories/SWE-bench/SWE-smith-2025-06-27-19-24-13/openai/c3-111b-code-sft-souwe4re-fp16-vllm"
+        # "trajectories/princeton-nlp/SWE-bench_Verified-2025-07-02-17-19-25/rawco/c3-111b-code-sft-souwe4re-fp16-vllm/"
+        # "trajectories/princeton-nlp/SWE-bench_Verified-2025-07-03-18-10-44/rawco/c3-sweep-ecsydrkq-690h-fp16"
+        # "trajectories/princeton-nlp/SWE-bench_Verified-2025-07-04-00-29-22/co/c3-sweep-ecsydrkq-690h-fp16"
         # swesmith
-        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-06-21-56-58/co/c3-sweep-ecsydrkq-690h-fp16"
-        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-06-21-39-06/deepseek/deepseek-chat"
-        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-06-21-41-52/claude-sonnet-4-20250514/"
+        # "trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-06-21-56-58/co/c3-sweep-ecsydrkq-690h-fp16"
+        # "trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-06-21-39-06/deepseek/deepseek-chat"
+        # "trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-06-21-41-52/claude-sonnet-4-20250514/"
         # swesmith 7/13
-        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-45/co/c3-sweep-ecsydrkq-690h-fp16" 
-        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-46/co/c3-sweep-ecsydrkq-690h-fp16" 
-        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-51/co/c3-sweep-ecsydrkq-690h-fp16" 
-        #"trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-52/co/c3-sweep-ecsydrkq-690h-fp16"
+        # "trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-45/co/c3-sweep-ecsydrkq-690h-fp16"
+        # "trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-46/co/c3-sweep-ecsydrkq-690h-fp16"
+        # "trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-51/co/c3-sweep-ecsydrkq-690h-fp16"
+        # "trajectories/swesmith-nonempty-SWE-bench/SWE-smith-2025-07-13-22-25-52/co/c3-sweep-ecsydrkq-690h-fp16"
         # EVERYTHING TIMES OUT
     )
 
@@ -138,7 +141,7 @@ def main():
 
         turns = traj_data["history"]
 
-        #print(f"\n=== Analyzing trajectory in {exampledir.name} (score: {score}) ===")
+        # print(f"\n=== Analyzing trajectory in {exampledir.name} (score: {score}) ===")
         trajectories.append((exampledir, score, turns))
         total_score += score
 
@@ -147,7 +150,9 @@ def main():
         if trajectories
         else "No trajectories found"
     )
-    import pdb; pdb.set_trace()
+    import pdb
+
+    pdb.set_trace()
 
     if trajectories:
         print(f"\nAnalyzing {len(trajectories)} trajectories with Claude...")
@@ -173,9 +178,9 @@ def main():
         correct_predictions = 0
         total_predictions = 0
 
-        for i, (exampledir, score, turns) in enumerate(tqdm(
-            trajectories, desc="Processing Claude analyses"
-        ), 1):
+        for i, (exampledir, score, turns) in enumerate(
+            tqdm(trajectories, desc="Processing Claude analyses"), 1
+        ):
             analysis = analyze_mistakes_with_claude(turns)
 
             print(f"Claude's Analysis for {exampledir.name}:\n{analysis}\n")
@@ -221,29 +226,48 @@ def main():
                     else:
                         prediction_status = "✗"
 
-                    print(f"[{i}/{len(trajectories)}] Trajectory {exampledir.name} (Score: {score})")
-                    print(f"  Predicted: {'Success' if predicted_success else 'Failure'} ({confidence} confidence) {prediction_status}")
+                    print(
+                        f"[{i}/{len(trajectories)}] Trajectory {exampledir.name} (Score: {score})"
+                    )
+                    print(
+                        f"  Predicted: {'Success' if predicted_success else 'Failure'} ({confidence} confidence) {prediction_status}"
+                    )
                     print(f"  Actual: {'Success' if actual_success else 'Failure'}")
-                    print(f"  Mistakes found: {trajectory_mistakes} (Total: {total_mistakes_found})")
+                    print(
+                        f"  Mistakes found: {trajectory_mistakes} (Total: {total_mistakes_found})"
+                    )
                 else:
-                    print(f"[{i}/{len(trajectories)}] Trajectory {exampledir.name} (Score: {score})")
-                    print(f"  Prediction: N/A")
-                    print(f"  Mistakes found: {trajectory_mistakes} (Total: {total_mistakes_found})")
+                    print(
+                        f"[{i}/{len(trajectories)}] Trajectory {exampledir.name} (Score: {score})"
+                    )
+                    print("  Prediction: N/A")
+                    print(
+                        f"  Mistakes found: {trajectory_mistakes} (Total: {total_mistakes_found})"
+                    )
 
                 # Print running mistake type counts
                 if trajectory_mistake_types:
-                    print(f"  Mistake types found: {', '.join(trajectory_mistake_types)}")
-                print(f"  Running totals: ", end="")
+                    print(
+                        f"  Mistake types found: {', '.join(trajectory_mistake_types)}"
+                    )
+                print("  Running totals: ", end="")
                 active_counts = [(k, v) for k, v in error_counts.items() if v > 0]
                 if active_counts:
-                    count_strs = [f"{k}: {v}" for k, v in sorted(active_counts, key=lambda x: x[1], reverse=True)]
+                    count_strs = [
+                        f"{k}: {v}"
+                        for k, v in sorted(
+                            active_counts, key=lambda x: x[1], reverse=True
+                        )
+                    ]
                     print(", ".join(count_strs))
                 else:
                     print("No mistakes found yet")
 
                 if total_predictions > 0:
                     accuracy = (correct_predictions / total_predictions) * 100
-                    print(f"  Prediction accuracy so far: {correct_predictions}/{total_predictions} ({accuracy:.1f}%)")
+                    print(
+                        f"  Prediction accuracy so far: {correct_predictions}/{total_predictions} ({accuracy:.1f}%)"
+                    )
                 print()
 
             except json.JSONDecodeError:
@@ -258,7 +282,9 @@ def main():
         # Prediction accuracy summary
         if total_predictions > 0:
             final_accuracy = (correct_predictions / total_predictions) * 100
-            print(f"PREDICTION ACCURACY: {correct_predictions}/{total_predictions} ({final_accuracy:.1f}%)")
+            print(
+                f"PREDICTION ACCURACY: {correct_predictions}/{total_predictions} ({final_accuracy:.1f}%)"
+            )
             print()
 
         # Error summary

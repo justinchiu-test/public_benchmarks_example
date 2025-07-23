@@ -2,37 +2,32 @@
 
 from runloop_api_client import AsyncRunloop
 from runloop_api_client.types import (
-    ScoringContractParam,
-    ScenarioEnvironment,
     InputContextParam,
-    LaunchParameters,
+    ScenarioEnvironment,
+    ScoringContractParam,
 )
+
 from rl_sweagent.swegym.test_spec import TestSpec
-import base64
-import asyncio
 
 
 async def create_swegym_scenario(
-    client: AsyncRunloop, 
-    instance: dict,
-    test_spec,
-    use_snapshot: str = None
+    client: AsyncRunloop, instance: dict, test_spec, use_snapshot: str = None
 ):
     """Create a Runloop scenario from a SWE-Gym instance
-    
+
     Args:
         client: AsyncRunloop client
         instance: SWE-Gym instance dictionary
         test_spec: TestSpec object created from the instance
         use_snapshot: If provided, use this specific snapshot instead of creating new one
     """
-    
+
     instance_id = instance["instance_id"]
     print(f"[INFO] Creating scenario for: {instance_id}")
 
     # We'll detect architecture after creating the devbox
     arch = "aarch64"  # Default, will be updated later
-    
+
     # Generate base setup script (translated from _DOCKERFILE_BASE)
     base_setup_script = f"""#!/bin/bash
 set -euxo pipefail
@@ -93,7 +88,7 @@ source ~/.bashrc
 {test_spec.setup_env_script}
 """
 
-    # Generate repository setup script (will be written to /root/setup_repo.sh)  
+    # Generate repository setup script (will be written to /root/setup_repo.sh)
     repo_setup_script = f"""#!/bin/bash
 set -euxo pipefail
 
@@ -125,7 +120,7 @@ fi
         print(f"[INFO] Using existing snapshot: {snapshot_id}")
     else:
         print("[INFO] Creating new devbox...")
-        
+
         # Create devbox
         devbox = await client.devboxes.create_and_await_running(
             name=f"SWE-Gym-{instance_id}",
@@ -133,112 +128,106 @@ fi
                 "instance_id": instance_id,
                 "repo": test_spec.repo,
                 "version": test_spec.version,
-            }
+            },
         )
         print(f"[INFO] Devbox created with ID: {devbox.id}")
-        
+
         # Detect architecture
         arch_result = await client.devboxes.execute_sync(
-            id=devbox.id,
-            command="uname -m"
+            id=devbox.id, command="uname -m"
         )
         arch = "aarch64" if "aarch64" in arch_result.stdout else "x86_64"
         print(f"[INFO] Detected architecture: {arch}")
-        
+
         # Update base setup script with correct architecture
         base_setup_script = base_setup_script.replace("{arch}", arch)
-        
+
         # Stage 1: Base setup (system packages + conda)
         print("[INFO] Stage 1: Running base setup...")
         await client.devboxes.write_file_contents(
-            id=devbox.id,
-            file_path="/tmp/base_setup.sh",
-            contents=base_setup_script
+            id=devbox.id, file_path="/tmp/base_setup.sh", contents=base_setup_script
         )
-        
+
         result = await client.devboxes.execute_sync(
             id=devbox.id,
             command="chmod +x /tmp/base_setup.sh && bash /tmp/base_setup.sh",
-            timeout=600000  # 10 minutes
+            timeout=600000,  # 10 minutes
         )
-        
+
         if result.exit_status != 0:
             print(f"[ERROR] Base setup failed with exit code: {result.exit_status}")
             if result.stderr:
                 print(f"[ERROR] stderr: {result.stderr[-1000:]}")
             raise Exception("Base setup failed")
-        
+
         print("[SUCCESS] Base setup completed!")
-        
+
         # Stage 2: Environment setup (conda environment)
         print("[INFO] Stage 2: Running environment setup...")
-        
+
         # Write setup_env.sh to /root/ (as per Dockerfile)
-        await client.devboxes.execute_sync(
-            id=devbox.id,
-            command="sudo mkdir -p /root"
-        )
-        
+        await client.devboxes.execute_sync(id=devbox.id, command="sudo mkdir -p /root")
+
         await client.devboxes.write_file_contents(
-            id=devbox.id,
-            file_path="/tmp/setup_env.sh",
-            contents=env_setup_script
+            id=devbox.id, file_path="/tmp/setup_env.sh", contents=env_setup_script
         )
-        
+
         await client.devboxes.execute_sync(
             id=devbox.id,
-            command="sudo cp /tmp/setup_env.sh /root/setup_env.sh && sudo chmod +x /root/setup_env.sh"
+            command="sudo cp /tmp/setup_env.sh /root/setup_env.sh && sudo chmod +x /root/setup_env.sh",
         )
-        
+
         # Run environment setup as per Dockerfile
         result = await client.devboxes.execute_sync(
             id=devbox.id,
             command='sudo /bin/bash -c "source ~/.bashrc && /root/setup_env.sh"',
-            timeout=600000  # 10 minutes
+            timeout=600000,  # 10 minutes
         )
-        
+
         if result.exit_status != 0:
-            print(f"[ERROR] Environment setup failed with exit code: {result.exit_status}")
+            print(
+                f"[ERROR] Environment setup failed with exit code: {result.exit_status}"
+            )
             if result.stderr:
                 print(f"[ERROR] stderr: {result.stderr[-1000:]}")
             raise Exception("Environment setup failed")
-            
+
         print("[SUCCESS] Environment setup completed!")
-        
+
         # Stage 3: Repository setup
         print("[INFO] Stage 3: Running repository setup...")
-        
+
         # Write setup_repo.sh to /root/ (as per Dockerfile)
         await client.devboxes.write_file_contents(
-            id=devbox.id,
-            file_path="/tmp/setup_repo.sh",
-            contents=repo_setup_script
+            id=devbox.id, file_path="/tmp/setup_repo.sh", contents=repo_setup_script
         )
-        
+
         await client.devboxes.execute_sync(
             id=devbox.id,
-            command="sudo cp /tmp/setup_repo.sh /root/setup_repo.sh && sudo chmod +x /root/setup_repo.sh"
+            command="sudo cp /tmp/setup_repo.sh /root/setup_repo.sh && sudo chmod +x /root/setup_repo.sh",
         )
-        
+
         # Run repository setup as per Dockerfile
         result = await client.devboxes.execute_sync(
             id=devbox.id,
             command="sudo /bin/bash /root/setup_repo.sh",
-            timeout=600000  # 10 minutes
+            timeout=600000,  # 10 minutes
         )
-        
+
         if result.exit_status != 0:
-            print(f"[ERROR] Repository setup failed with exit code: {result.exit_status}")
+            print(
+                f"[ERROR] Repository setup failed with exit code: {result.exit_status}"
+            )
             if result.stderr:
                 print(f"[ERROR] stderr: {result.stderr[-1000:]}")
             raise Exception("Repository setup failed")
-            
+
         print("[SUCCESS] Repository setup completed!")
-        
+
         # Final verification
         verify_result = await client.devboxes.execute_sync(
             id=devbox.id,
-            command="ls -la /testbed/.git 2>&1 | head -3 && echo '---' && conda env list"
+            command="ls -la /testbed/.git 2>&1 | head -3 && echo '---' && conda env list",
         )
         print("[INFO] Verification:")
         print(verify_result.stdout)
@@ -331,4 +320,3 @@ def format_additional_context(instance: dict, test_spec: TestSpec) -> str:
         parts.append(f"\nHints: {instance['hints_text']}")
 
     return "\n".join(parts)
-

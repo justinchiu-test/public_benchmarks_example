@@ -1,13 +1,14 @@
-from runloop_api_client import AsyncRunloop
-import os
 import asyncio
+import os
+from typing import Dict, List, Optional, TypedDict
+
+from runloop_api_client import AsyncRunloop
 from runloop_api_client.types import (
-    ScoringContractParam,
-    ScenarioEnvironment,
     InputContextParam,
     LaunchParameters,
+    ScenarioEnvironment,
+    ScoringContractParam,
 )
-from typing import List, TypedDict, Dict, Optional
 
 
 class ScenarioConfig(TypedDict):
@@ -15,7 +16,7 @@ class ScenarioConfig(TypedDict):
     input_context: Optional[InputContextParam]
     scoring_contract: Optional[ScoringContractParam]
     environment_parameters: Optional[ScenarioEnvironment]
-    metadata: Dict[str, str] | {
+    metadata: Dict[str, str] = {
         "custom_scenario": "True",
     }
     reference_output: Optional[str]

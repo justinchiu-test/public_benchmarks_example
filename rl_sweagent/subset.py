@@ -1,6 +1,7 @@
 """Create a subset of a benchmark with desired properties."""
 
 import asyncio
+
 from runloop_api_client import NOT_GIVEN, AsyncRunloop, NotGiven
 from runloop_api_client.types import ScenarioView
 

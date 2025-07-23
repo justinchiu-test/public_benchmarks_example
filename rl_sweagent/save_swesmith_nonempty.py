@@ -2,8 +2,9 @@
 Find all the swesmith problem instances that are non-empty
 """
 
-import datasets
 from pathlib import Path
+
+import datasets
 
 
 def main():

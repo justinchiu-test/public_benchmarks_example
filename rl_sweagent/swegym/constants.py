@@ -73,14 +73,14 @@ SPECS = {
     ],
 
     #python version, can be skipped if using environment.yml in "packages"
-    "python": "3.9", 
+    "python": "3.9",
 
         "env_patches": [
             # "some commands to modify the env"
             # environment.yml or requirements.txt is at current dir
         ],
     # pacakges type:
-    # either environment.yml or requirements.txt 
+    # either environment.yml or requirements.txt
     # or specifying the packages naively
     "packages": "numpy scipy pytest" or "environment.yml" or "requirements.txt"
 

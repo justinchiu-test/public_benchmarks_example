@@ -1,12 +1,14 @@
 """Create SWE-Gym benchmarks using the swegym module."""
 
-from runloop_api_client import AsyncRunloop
-import os
 import asyncio
-import sys
 import json
+import os
+import sys
 from typing import Dict
+
 from datasets import load_dataset
+from runloop_api_client import AsyncRunloop
+
 from rl_sweagent.swegym.scenario_builder import create_swegym_scenario
 from rl_sweagent.swegym.test_spec import make_test_spec
 
@@ -125,7 +127,7 @@ async def create_swegym_benchmark(
         try:
             # Create test spec for this instance
             test_spec = make_test_spec(instance)
-            
+
             # Reuse snapshot if requested and available
             use_snapshot = snapshot_id if reuse_snapshot and snapshot_id else None
 
@@ -211,13 +213,13 @@ async def create_swegym_benchmark(
         # Update existing benchmark by adding new scenarios
         try:
             # Get current scenario IDs
-            current_scenarios = (
-                existing_benchmark.scenario_ids
-                if hasattr(existing_benchmark, "scenario_ids")
-                else []
-            )
+            # current_scenarios = (
+            #     existing_benchmark.scenario_ids
+            #     if hasattr(existing_benchmark, "scenario_ids")
+            #     else []
+            # )
             # Combine with new scenarios (avoiding duplicates)
-            all_scenario_ids = list(set(current_scenarios + scenario_ids))
+            # all_scenario_ids = list(set(current_scenarios + scenario_ids))
 
             # Note: The API might not support updating benchmarks directly
             # In that case, we'll just note the existing benchmark

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Inspect the fields available in SWE-Gym dataset examples."""
 
-from datasets import load_dataset
 import json
+
+from datasets import load_dataset
 
 
 def inspect_swegym_fields():

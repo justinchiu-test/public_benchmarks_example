@@ -9,7 +9,7 @@ This module uses the existing SWE-bench test_spec.py to generate scripts for Run
 rl_sweagent/swegym/
 ├── __init__.py
 ├── constants.py          # Copied from swe-bench-fork
-├── test_spec.py          # Copied from swe-bench-fork  
+├── test_spec.py          # Copied from swe-bench-fork
 ├── utils.py              # Copied from swe-bench-fork
 ├── dockerfiles.py        # Copied from swe-bench-fork
 ├── scenario_builder.py   # Build Runloop scenarios
@@ -58,7 +58,7 @@ async def create_swegym_scenario(
     use_snapshot: str = None
 ):
     """Create a Runloop scenario from a SWE-Gym instance"""
-    
+
     # Load instance from dataset
     dataset = load_dataset("SWE-Gym/SWE-Gym", split="train", streaming=True)
     instance = None
@@ -66,13 +66,13 @@ async def create_swegym_scenario(
         if ex.get('instance_id') == instance_id:
             instance = ex
             break
-    
+
     if not instance:
         raise ValueError(f"Instance {instance_id} not found")
-    
+
     # Create test spec using swe-bench logic
     test_spec = make_test_spec(instance)
-    
+
     # Generate setup script (combines env + repo setup)
     setup_script = f"""#!/bin/bash
 set -euxo pipefail
@@ -94,7 +94,7 @@ conda init bash
 # Environment setup
 {test_spec.setup_env_script}
 
-# Repository setup  
+# Repository setup
 {test_spec.install_repo_script}
 """
 
@@ -134,7 +134,7 @@ fi
                 "version": test_spec.version,
             }
         )
-        
+
         # Create snapshot
         snapshot = await client.devboxes.snapshot_disk(
             id=devbox.id,
@@ -142,10 +142,10 @@ fi
             timeout=300
         )
         snapshot_id = snapshot.id
-        
+
         # Shutdown devbox
         await client.devboxes.shutdown(id=devbox.id)
-    
+
     # Create scenario
     scenario_config = {
         "name": f"swegym-{instance_id}",
@@ -173,7 +173,7 @@ fi
             "base_commit": instance['base_commit'],
         }
     }
-    
+
     scenario = await client.scenarios.create(**scenario_config)
     return scenario
 
@@ -184,18 +184,18 @@ def format_additional_context(instance: dict, test_spec: TestSpec) -> str:
         f"Version: {test_spec.version}",
         f"Base Commit: {instance['base_commit']}",
     ]
-    
+
     if test_spec.FAIL_TO_PASS:
-        parts.append(f"\nTests to fix (FAIL_TO_PASS):\n" + 
+        parts.append(f"\nTests to fix (FAIL_TO_PASS):\n" +
                     "\n".join(f"- {t}" for t in test_spec.FAIL_TO_PASS))
-    
+
     if test_spec.PASS_TO_PASS:
-        parts.append(f"\nTests to keep passing (PASS_TO_PASS):\n" + 
+        parts.append(f"\nTests to keep passing (PASS_TO_PASS):\n" +
                     "\n".join(f"- {t}" for t in test_spec.PASS_TO_PASS))
-    
+
     if instance.get('hints_text'):
         parts.append(f"\nHints: {instance['hints_text']}")
-    
+
     return "\n".join(parts)
 ```
 
@@ -212,17 +212,17 @@ async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--instance-id", required=True, help="SWE-Gym instance ID")
     parser.add_argument("--snapshot-id", help="Use existing snapshot")
-    
+
     args = parser.parse_args()
-    
+
     client = AsyncRunloop(bearer_token=os.getenv("RUNLOOP_API_KEY"))
-    
+
     scenario = await create_swegym_scenario(
         client,
         args.instance_id,
         args.snapshot_id
     )
-    
+
     print(f"Created scenario: {scenario.id}")
 
 if __name__ == "__main__":
@@ -235,7 +235,7 @@ if __name__ == "__main__":
 # Create a scenario
 python -m rl_sweagent.swegym --instance-id getmoto__moto-7365
 
-# Use existing snapshot  
+# Use existing snapshot
 python -m rl_sweagent.swegym --instance-id getmoto__moto-7365 --snapshot-id snp_xxx
 ```
 

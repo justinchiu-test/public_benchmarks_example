@@ -6,18 +6,17 @@ import hashlib
 import json
 import platform
 import re
-
 from dataclasses import dataclass
 from typing import Any, Union, cast
 
 from rl_sweagent.swegym.constants import (
-    SWEbenchInstance,
-    KEY_INSTANCE_ID,
     FAIL_TO_PASS,
-    PASS_TO_PASS,
+    KEY_INSTANCE_ID,
     MAP_REPO_TO_INSTALL,
     MAP_REPO_VERSION_TO_SPECS,
+    PASS_TO_PASS,
     USE_X86,
+    SWEbenchInstance,
 )
 from rl_sweagent.swegym.dockerfiles import (
     get_dockerfile_base,
@@ -25,8 +24,8 @@ from rl_sweagent.swegym.dockerfiles import (
     get_dockerfile_instance,
 )
 from rl_sweagent.swegym.utils import (
-    get_requirements,
     get_environment_yml,
+    get_requirements,
     get_test_directives,
 )
 
@@ -345,8 +344,8 @@ def make_test_spec(instance: SWEbenchInstance) -> TestSpec:
     repo = instance["repo"].lower()
     version = instance["version"]
     base_commit = instance["base_commit"]
-    problem_statement = instance["problem_statement"]
-    hints_text = instance["hints_text"]  # Unused
+    # problem_statement = instance["problem_statement"]
+    # hints_text = instance["hints_text"]  # Unused
     test_patch = instance["test_patch"]
 
     def _from_json_or_obj(key: str) -> Any:

@@ -2,22 +2,22 @@
 
 import json
 import os
-from pathlib import Path
 import re
-import requests
-
 from argparse import ArgumentTypeError
-from datasets import Dataset, load_dataset
 from functools import cache
+from pathlib import Path
 from typing import cast
 
+import requests
+from datasets import Dataset, load_dataset
+
 from rl_sweagent.swegym.constants import (
-    SWEbenchInstance,
+    KEY_INSTANCE_ID,
     MAP_REPO_TO_ENV_YML_PATHS,
     MAP_REPO_TO_REQS_PATHS,
     NON_TEST_EXTS,
     SWE_BENCH_URL_RAW,
-    KEY_INSTANCE_ID,
+    SWEbenchInstance,
 )
 
 
@@ -248,9 +248,9 @@ def get_requirements_by_commit(repo: str, commit: str) -> str:
     original_req = []
     additional_reqs = []
     req_dir = "/".join(req_path.split("/")[:-1])
-    exclude_line = lambda line: any(
-        [line.strip().startswith(x) for x in ["-e .", "#", ".[test"]]
-    )
+
+    def exclude_line(line):
+        return any([line.strip().startswith(x) for x in ["-e .", "#", ".[test"]])
 
     for line in lines.split("\n"):
         if line.strip().startswith("-r"):

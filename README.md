@@ -59,7 +59,7 @@ uv run run_public_benchmark.py --benchmark-id bmd_2zmp3Mu3LhWu7yDVIfq3m
 2. Run a specific SWE bench verified scenario by instance ID:
 See full list of scenarios at: https://huggingface.co/datasets/princeton-nlp/SWE-bench_Verified
 ```bash
-uv run run_public_benchmark.py --scenario-name astropy__astropy-12907 
+uv run run_public_benchmark.py --scenario-name astropy__astropy-12907
 ```
 
 ### Additional Options
@@ -69,4 +69,3 @@ uv run run_public_benchmark.py --scenario-name astropy__astropy-12907
 
 ## Notes
 - The script limits concurrent scenario runs to 50
-

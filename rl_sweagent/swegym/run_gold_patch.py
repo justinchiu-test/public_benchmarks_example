@@ -1,11 +1,12 @@
-import asyncio
 import argparse
+import asyncio
 from dataclasses import dataclass
 from typing import Optional
+
 from runloop_api_client import AsyncRunloop
+from runloop_api_client.lib.polling import PollingConfig
 from runloop_api_client.types import ScenarioView
 from runloop_api_client.types.scenario_run_view import ScenarioRunView
-from runloop_api_client.lib.polling import PollingConfig
 
 CONCURRENT_RUNS = 50
 semaphore = asyncio.Semaphore(CONCURRENT_RUNS)
