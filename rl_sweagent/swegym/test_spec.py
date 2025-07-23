@@ -38,6 +38,7 @@ class TestSpec:
     """
     A dataclass that represents a test specification for a single instance of SWE-bench.
     """
+
     instance_id: str
     repo: str
     version: str
@@ -50,16 +51,25 @@ class TestSpec:
 
     @property
     def setup_env_script(self):
-        return "\n".join(["#!/bin/bash", "set -exo pipefail"] + self.env_script_list) + "\n"
+        return (
+            "\n".join(["#!/bin/bash", "set -exo pipefail"] + self.env_script_list)
+            + "\n"
+        )
 
     @property
     def eval_script(self):
-        return "\n".join(["#!/bin/bash", "set -xo pipefail"] + self.eval_script_list) + "\n"
+        return (
+            "\n".join(["#!/bin/bash", "set -xo pipefail"] + self.eval_script_list)
+            + "\n"
+        )
         # Don't exit early because we need to revert tests at the end
 
     @property
     def install_repo_script(self):
-        return "\n".join(["#!/bin/bash", "set -exo pipefail"] + self.repo_script_list) + "\n"
+        return (
+            "\n".join(["#!/bin/bash", "set -exo pipefail"] + self.repo_script_list)
+            + "\n"
+        )
 
     @property
     def base_image_key(self):
@@ -110,7 +120,9 @@ class TestSpec:
             raise ValueError(f"Invalid architecture: {self.arch}")
 
 
-def get_test_specs_from_dataset(dataset: Union[list[SWEbenchInstance], list[TestSpec]]) -> list[TestSpec]:
+def get_test_specs_from_dataset(
+    dataset: Union[list[SWEbenchInstance], list[TestSpec]],
+) -> list[TestSpec]:
     """
     Idempotent function that converts a list of SWEbenchInstance objects to a list of TestSpec objects.
     """
@@ -132,7 +144,7 @@ def make_repo_script_list(specs, repo, repo_directory, base_commit, env_name):
         # Remove the remote so the agent won't see newer commits.
         "git remote remove origin",
         # Make sure conda is available for later use
-        "source /opt/miniconda3/bin/activate",
+        "source /home/user/miniconda3/bin/activate",
         f"conda activate {env_name}",
         'echo "Current environment: $CONDA_DEFAULT_ENV"',
     ]
@@ -163,14 +175,18 @@ def replace_uninstallable_packages_requirements_txt(requirement_str: str) -> str
     requirements_replaced = []
     for requirement in requirements:
         if requirement in replacements:
-            print(f"Replaced {requirement!r} with {replacements[requirement]!r} (replace_uninstallable_packages)")
+            print(
+                f"Replaced {requirement!r} with {replacements[requirement]!r} (replace_uninstallable_packages)"
+            )
             requirements_replaced.append(replacements[requirement])
         else:
             requirements_replaced.append(requirement)
     return "\n".join(requirements_replaced) + "\n"
 
 
-def make_env_script_list(instance: SWEbenchInstance, specs: dict, env_name: str) -> list[str]:
+def make_env_script_list(
+    instance: SWEbenchInstance, specs: dict, env_name: str
+) -> list[str]:
     """
     Creates the list of commands to set up the conda environment for testing.
     This is the setup script for the environment image.
@@ -180,7 +196,7 @@ def make_env_script_list(instance: SWEbenchInstance, specs: dict, env_name: str)
     """
     HEREDOC_DELIMITER = "EOF_59812759871"
     reqs_commands = [
-        "source /opt/miniconda3/bin/activate",
+        "source /home/user/miniconda3/bin/activate",
     ]
     # Create conda environment according to install instructinos
     pkgs = specs.get("packages", "")
@@ -190,7 +206,9 @@ def make_env_script_list(instance: SWEbenchInstance, specs: dict, env_name: str)
         reqs_commands.append(cmd)
 
         # Install dependencies
-        reqs = replace_uninstallable_packages_requirements_txt(get_requirements(instance))
+        reqs = replace_uninstallable_packages_requirements_txt(
+            get_requirements(instance)
+        )
         path_to_reqs = "$HOME/requirements.txt"
         reqs_commands.append(
             f"cat <<'{HEREDOC_DELIMITER}' > {path_to_reqs}\n{reqs}\n{HEREDOC_DELIMITER}"
@@ -211,7 +229,9 @@ def make_env_script_list(instance: SWEbenchInstance, specs: dict, env_name: str)
             reqs_commands += specs["env_patches"]
         if "no_use_env" in specs and specs["no_use_env"]:
             # `conda create` based installation
-            cmd = f"conda create -c conda-forge -n {env_name} python={specs['python']} -y"
+            cmd = (
+                f"conda create -c conda-forge -n {env_name} python={specs['python']} -y"
+            )
             reqs_commands.append(cmd)
 
             # Install dependencies
@@ -222,7 +242,7 @@ def make_env_script_list(instance: SWEbenchInstance, specs: dict, env_name: str)
             cmd = f"conda env create --file {path_to_reqs}"
             reqs_commands.append(cmd)
 
-            if 'python' in specs:
+            if "python" in specs:
                 cmd = f"conda activate {env_name} && conda install python={specs['python']} -y"
             else:
                 cmd = f"conda activate {env_name}"
@@ -246,23 +266,33 @@ def make_env_script_list(instance: SWEbenchInstance, specs: dict, env_name: str)
         reqs_commands.append(cmd)
     return reqs_commands
 
+
 def make_test_command(instance):
-    if instance['repo'] == "python/mypy":
-        pattern = r'\[case ([^\]]+)\]'
+    if instance["repo"] == "python/mypy":
+        pattern = r"\[case ([^\]]+)\]"
         test_keys = re.findall(pattern, instance["test_patch"])
         test_keys_or = " or ".join(test_keys)
-        test_command = MAP_REPO_VERSION_TO_SPECS[instance["repo"]][instance["version"]]["test_cmd"] + " " + f'"{test_keys_or}"'
+        test_command = (
+            MAP_REPO_VERSION_TO_SPECS[instance["repo"]][instance["version"]]["test_cmd"]
+            + " "
+            + f'"{test_keys_or}"'
+        )
         return test_command
     else:
         test_command = " ".join(
             [
-                MAP_REPO_VERSION_TO_SPECS[instance["repo"].lower()][instance["version"]]["test_cmd"],
+                MAP_REPO_VERSION_TO_SPECS[instance["repo"].lower()][
+                    instance["version"]
+                ]["test_cmd"],
                 *get_test_directives(instance),
             ]
         )
         return test_command
-    
-def make_eval_script_list(instance, specs, env_name, repo_directory, base_commit, test_patch):
+
+
+def make_eval_script_list(
+    instance, specs, env_name, repo_directory, base_commit, test_patch
+):
     """
     Applies the test patch and runs the tests.
     """
@@ -275,7 +305,7 @@ def make_eval_script_list(instance, specs, env_name, repo_directory, base_commit
     )
     test_command = make_test_command(instance)
     eval_commands = [
-        "source /opt/miniconda3/bin/activate",
+        "source /home/user/miniconda3/bin/activate",
         f"conda activate {env_name}",
         f"cd {repo_directory}",
     ]
@@ -288,7 +318,7 @@ def make_eval_script_list(instance, specs, env_name, repo_directory, base_commit
         "git status",
         "git show",
         f"git diff {base_commit}",
-        "source /opt/miniconda3/bin/activate",
+        "source /home/user/miniconda3/bin/activate",
         f"conda activate {env_name}",
     ]
     if "install" in specs:
@@ -308,7 +338,9 @@ def make_test_spec(instance: SWEbenchInstance) -> TestSpec:
     instance_id = instance[KEY_INSTANCE_ID]
     # if there's capital letters in the repo name, convert to lowercase
     if instance_id != instance_id.lower():
-        print(f"Instance ID {instance_id} contains capital letters. Converting to lowercase.")
+        print(
+            f"Instance ID {instance_id} contains capital letters. Converting to lowercase."
+        )
         instance_id = instance_id.lower()
     repo = instance["repo"].lower()
     version = instance["version"]
@@ -326,20 +358,26 @@ def make_test_spec(instance: SWEbenchInstance) -> TestSpec:
     try:
         pass_to_pass = _from_json_or_obj(PASS_TO_PASS)
     except Exception as e:
-        print(f"Error parsing PASS_TO_PASS for instance {instance_id}: {e}. PASS_TO_PASS: {instance[PASS_TO_PASS]}")
+        print(
+            f"Error parsing PASS_TO_PASS for instance {instance_id}: {e}. PASS_TO_PASS: {instance[PASS_TO_PASS]}"
+        )
         pass_to_pass = []
 
     try:
         fail_to_pass = _from_json_or_obj(FAIL_TO_PASS)
     except Exception as e:
-        print(f"Error parsing FAIL_TO_PASS for instance {instance_id}: {e}. FAIL_TO_PASS: {instance[FAIL_TO_PASS]}")
+        print(
+            f"Error parsing FAIL_TO_PASS for instance {instance_id}: {e}. FAIL_TO_PASS: {instance[FAIL_TO_PASS]}"
+        )
         fail_to_pass = []
 
     env_name = "testbed"
     repo_directory = f"/{env_name}"
     specs = MAP_REPO_VERSION_TO_SPECS[repo][version]
 
-    repo_script_list = make_repo_script_list(specs, repo, repo_directory, base_commit, env_name)
+    repo_script_list = make_repo_script_list(
+        specs, repo, repo_directory, base_commit, env_name
+    )
     env_script_list = make_env_script_list(instance, specs, env_name)
     eval_script_list = make_eval_script_list(
         instance, specs, env_name, repo_directory, base_commit, test_patch
