@@ -8,6 +8,7 @@ import json
 from typing import Dict
 from datasets import load_dataset
 from rl_sweagent.swegym.scenario_builder import create_swegym_scenario
+from rl_sweagent.swegym.test_spec import make_test_spec
 
 
 async def test_scenario_with_gold_patch(client: AsyncRunloop, scenario_id: str) -> Dict:
@@ -122,11 +123,14 @@ async def create_swegym_benchmark(
         )
 
         try:
+            # Create test spec for this instance
+            test_spec = make_test_spec(instance)
+            
             # Reuse snapshot if requested and available
             use_snapshot = snapshot_id if reuse_snapshot and snapshot_id else None
 
             scenario = await create_swegym_scenario(
-                client, instance_id, use_snapshot=use_snapshot
+                client, instance, test_spec, use_snapshot=use_snapshot
             )
 
             scenario_ids.append(scenario.id)

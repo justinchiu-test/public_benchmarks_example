@@ -7,60 +7,97 @@ from runloop_api_client.types import (
     InputContextParam,
     LaunchParameters,
 )
-from datasets import load_dataset
-from rl_sweagent.swegym.test_spec import make_test_spec, TestSpec
+from rl_sweagent.swegym.test_spec import TestSpec
 import base64
+import asyncio
 
 
 async def create_swegym_scenario(
-    client: AsyncRunloop, instance_id: str, use_snapshot: str = None
+    client: AsyncRunloop, 
+    instance: dict,
+    test_spec,
+    use_snapshot: str = None
 ):
-    """Create a Runloop scenario from a SWE-Gym instance"""
+    """Create a Runloop scenario from a SWE-Gym instance
+    
+    Args:
+        client: AsyncRunloop client
+        instance: SWE-Gym instance dictionary
+        test_spec: TestSpec object created from the instance
+        use_snapshot: If provided, use this specific snapshot instead of creating new one
+    """
+    
+    instance_id = instance["instance_id"]
+    print(f"[INFO] Creating scenario for: {instance_id}")
 
-    # Load instance from dataset
-    print(f"[INFO] Loading SWE-Gym instance: {instance_id}")
-    dataset = load_dataset("SWE-Gym/SWE-Gym", split="train", streaming=True)
-    instance = None
-    for ex in dataset:
-        if ex.get("instance_id") == instance_id:
-            instance = ex
-            break
-
-    if not instance:
-        raise ValueError(f"Instance {instance_id} not found")
-
-    print(f"[INFO] Found instance for repo: {instance['repo']}")
-
-    # Create test spec using swe-bench logic
-    test_spec = make_test_spec(instance)
-
-    # Generate setup script (combines env + repo setup)
-    setup_script = f"""#!/bin/bash
+    # We'll detect architecture after creating the devbox
+    arch = "aarch64"  # Default, will be updated later
+    
+    # Generate base setup script (translated from _DOCKERFILE_BASE)
+    base_setup_script = f"""#!/bin/bash
 set -euxo pipefail
 
-# Install system dependencies
-sudo apt-get update
-sudo apt-get install -y wget git build-essential libffi-dev libtiff-dev python3 python3-pip
+# Set environment variables
+export DEBIAN_FRONTEND=noninteractive
+export TZ=Etc/UTC
 
-# Install Miniconda in user directory
-MINICONDA_PATH=/home/user/miniconda3
-if [ ! -d "$MINICONDA_PATH" ]; then
-    wget 'https://repo.anaconda.com/miniconda/Miniconda3-py311_23.11.0-2-Linux-aarch64.sh' -O miniconda.sh
-    bash miniconda.sh -b -p "$MINICONDA_PATH"
-    rm miniconda.sh
-fi
+# Install system dependencies (from Dockerfile)
+sudo apt update && sudo apt install -y \\
+    wget \\
+    git \\
+    build-essential \\
+    libffi-dev \\
+    libtiff-dev \\
+    python3 \\
+    python3-pip \\
+    python-is-python3 \\
+    jq \\
+    curl \\
+    locales \\
+    locales-all \\
+    tzdata
 
-export PATH="$MINICONDA_PATH/bin:$PATH"
-eval "$($MINICONDA_PATH/bin/conda shell.bash hook)"
+# Clean apt cache
+sudo rm -rf /var/lib/apt/lists/*
 
-# Create /testbed directory with proper permissions
+# Download and install conda at /opt/miniconda3 (MUST use this path from Dockerfile)
+wget 'https://repo.anaconda.com/miniconda/Miniconda3-py311_24.7.1-0-Linux-{arch}.sh' -O miniconda.sh
+sudo bash miniconda.sh -b -p /opt/miniconda3
+rm miniconda.sh
+
+# Add conda to PATH
+export PATH=/opt/miniconda3/bin:$PATH
+
+# Initialize conda for all users
+sudo /opt/miniconda3/bin/conda init --all
+
+# Configure conda
+/opt/miniconda3/bin/conda config --append channels conda-forge
+
+# Add nonroot user (from Dockerfile)
+sudo adduser --disabled-password --gecos 'dog' nonroot || true
+
+# Create /testbed directory
 sudo mkdir -p /testbed
-sudo chown user:user /testbed
+sudo chmod 777 /testbed
+"""
 
-# Environment setup
+    # Generate environment setup script (will be written to /root/setup_env.sh)
+    env_setup_script = f"""#!/bin/bash
+set -euxo pipefail
+
+# Source bashrc to get conda
+source ~/.bashrc
+
+# Run the test_spec environment setup
 {test_spec.setup_env_script}
+"""
 
-# Repository setup  
+    # Generate repository setup script (will be written to /root/setup_repo.sh)  
+    repo_setup_script = f"""#!/bin/bash
+set -euxo pipefail
+
+# Run the test_spec repository setup
 {test_spec.install_repo_script}
 """
 
@@ -68,9 +105,8 @@ sudo chown user:user /testbed
     scoring_script = f"""#!/bin/bash
 set -eo pipefail
 
-# Setup conda environment
-export PATH="/home/user/miniconda3/bin:$PATH"
-eval "$(/home/user/miniconda3/bin/conda shell.bash hook)"
+# Source conda from /opt/miniconda3 (as per Dockerfile)
+source /opt/miniconda3/etc/profile.d/conda.sh
 
 # Run evaluation
 {test_spec.eval_script}
@@ -89,54 +125,123 @@ fi
         print(f"[INFO] Using existing snapshot: {snapshot_id}")
     else:
         print("[INFO] Creating new devbox...")
-
-        # Encode the setup script as base64 to avoid shell escaping issues
-        setup_script_b64 = base64.b64encode(setup_script.encode()).decode()
-
-        # Create devbox with setup
+        
+        # Create devbox
         devbox = await client.devboxes.create_and_await_running(
             name=f"SWE-Gym-{instance_id}",
-            launch_parameters=LaunchParameters(
-                launch_commands=[
-                    "echo 'Setting up SWE-Gym environment'",
-                    f"echo '{setup_script_b64}' | base64 -d > /tmp/setup.sh",
-                    "chmod +x /tmp/setup.sh",
-                    "echo '[INFO] Setup script written to /tmp/setup.sh'",
-                    "echo '[INFO] Running setup script, logs will be written to /tmp/setup.log and /tmp/setup.err'",
-                    "bash /tmp/setup.sh > /tmp/setup.log 2>/tmp/setup.err || echo '[ERROR] Setup failed with exit code: '$?",
-                    "echo '[INFO] === Setup stdout (last 30 lines) ==='",
-                    "tail -30 /tmp/setup.log || echo 'No setup.log found'",
-                    "echo '[INFO] === Setup stderr (last 30 lines) ==='",
-                    "tail -30 /tmp/setup.err || echo 'No setup.err found'",
-                    "echo '[INFO] === Debug info ==='",
-                    "echo 'Python version:' && python3 --version",
-                    "echo 'Conda installed:' && which conda || echo 'conda not found'",
-                    "echo 'Testbed exists:' && ls -la /testbed 2>&1 | head -3 || echo '/testbed not found'",
-                ]
-            ),
             metadata={
                 "instance_id": instance_id,
                 "repo": test_spec.repo,
                 "version": test_spec.version,
-            },
+            }
         )
         print(f"[INFO] Devbox created with ID: {devbox.id}")
-        print("[INFO] Setup logs are available at:")
-        print(f"  - stdout: /tmp/setup.log")
-        print(f"  - stderr: /tmp/setup.err")
-        print(f"[INFO] To view setup logs after creation:")
-        print(
-            f"  uv run python -c \"import asyncio; from runloop_api_client import AsyncRunloop; asyncio.run(AsyncRunloop().devboxes.execute_sync('{devbox.id}', 'cat /tmp/setup.log'))\""
+        
+        # Detect architecture
+        arch_result = await client.devboxes.execute_sync(
+            id=devbox.id,
+            command="uname -m"
         )
-        print(f"[INFO] To view setup errors after creation:")
-        print(
-            f"  uv run python -c \"import asyncio; from runloop_api_client import AsyncRunloop; asyncio.run(AsyncRunloop().devboxes.execute_sync('{devbox.id}', 'cat /tmp/setup.err'))\""
+        arch = "aarch64" if "aarch64" in arch_result.stdout else "x86_64"
+        print(f"[INFO] Detected architecture: {arch}")
+        
+        # Update base setup script with correct architecture
+        base_setup_script = base_setup_script.replace("{arch}", arch)
+        
+        # Stage 1: Base setup (system packages + conda)
+        print("[INFO] Stage 1: Running base setup...")
+        await client.devboxes.write_file_contents(
+            id=devbox.id,
+            file_path="/tmp/base_setup.sh",
+            contents=base_setup_script
         )
-        print(f"[INFO] To debug the setup interactively:")
-        print(
-            f"  uv run python -c \"import asyncio; from runloop_api_client import AsyncRunloop; client = AsyncRunloop(); asyncio.run(client.devboxes.execute_sync('{devbox.id}', 'bash'))\""
+        
+        result = await client.devboxes.execute_sync(
+            id=devbox.id,
+            command="chmod +x /tmp/base_setup.sh && bash /tmp/base_setup.sh",
+            timeout=600000  # 10 minutes
         )
-        print("[INFO] Setup script is running...")
+        
+        if result.exit_status != 0:
+            print(f"[ERROR] Base setup failed with exit code: {result.exit_status}")
+            if result.stderr:
+                print(f"[ERROR] stderr: {result.stderr[-1000:]}")
+            raise Exception("Base setup failed")
+        
+        print("[SUCCESS] Base setup completed!")
+        
+        # Stage 2: Environment setup (conda environment)
+        print("[INFO] Stage 2: Running environment setup...")
+        
+        # Write setup_env.sh to /root/ (as per Dockerfile)
+        await client.devboxes.execute_sync(
+            id=devbox.id,
+            command="sudo mkdir -p /root"
+        )
+        
+        await client.devboxes.write_file_contents(
+            id=devbox.id,
+            file_path="/tmp/setup_env.sh",
+            contents=env_setup_script
+        )
+        
+        await client.devboxes.execute_sync(
+            id=devbox.id,
+            command="sudo cp /tmp/setup_env.sh /root/setup_env.sh && sudo chmod +x /root/setup_env.sh"
+        )
+        
+        # Run environment setup as per Dockerfile
+        result = await client.devboxes.execute_sync(
+            id=devbox.id,
+            command='sudo /bin/bash -c "source ~/.bashrc && /root/setup_env.sh"',
+            timeout=600000  # 10 minutes
+        )
+        
+        if result.exit_status != 0:
+            print(f"[ERROR] Environment setup failed with exit code: {result.exit_status}")
+            if result.stderr:
+                print(f"[ERROR] stderr: {result.stderr[-1000:]}")
+            raise Exception("Environment setup failed")
+            
+        print("[SUCCESS] Environment setup completed!")
+        
+        # Stage 3: Repository setup
+        print("[INFO] Stage 3: Running repository setup...")
+        
+        # Write setup_repo.sh to /root/ (as per Dockerfile)
+        await client.devboxes.write_file_contents(
+            id=devbox.id,
+            file_path="/tmp/setup_repo.sh",
+            contents=repo_setup_script
+        )
+        
+        await client.devboxes.execute_sync(
+            id=devbox.id,
+            command="sudo cp /tmp/setup_repo.sh /root/setup_repo.sh && sudo chmod +x /root/setup_repo.sh"
+        )
+        
+        # Run repository setup as per Dockerfile
+        result = await client.devboxes.execute_sync(
+            id=devbox.id,
+            command="sudo /bin/bash /root/setup_repo.sh",
+            timeout=600000  # 10 minutes
+        )
+        
+        if result.exit_status != 0:
+            print(f"[ERROR] Repository setup failed with exit code: {result.exit_status}")
+            if result.stderr:
+                print(f"[ERROR] stderr: {result.stderr[-1000:]}")
+            raise Exception("Repository setup failed")
+            
+        print("[SUCCESS] Repository setup completed!")
+        
+        # Final verification
+        verify_result = await client.devboxes.execute_sync(
+            id=devbox.id,
+            command="ls -la /testbed/.git 2>&1 | head -3 && echo '---' && conda env list"
+        )
+        print("[INFO] Verification:")
+        print(verify_result.stdout)
 
         # Create snapshot
         print("[INFO] Creating snapshot...")
@@ -215,18 +320,15 @@ def format_additional_context(instance: dict, test_spec: TestSpec) -> str:
     ]
 
     if test_spec.FAIL_TO_PASS:
-        parts.append(
-            "\nTests to fix (FAIL_TO_PASS):\n"
-            + "\n".join(f"- {t}" for t in test_spec.FAIL_TO_PASS)
-        )
+        fail_tests = "\n".join(f"- {t}" for t in test_spec.FAIL_TO_PASS)
+        parts.append(f"\nTests to fix (FAIL_TO_PASS):\n{fail_tests}")
 
     if test_spec.PASS_TO_PASS:
-        parts.append(
-            "\nTests to keep passing (PASS_TO_PASS):\n"
-            + "\n".join(f"- {t}" for t in test_spec.PASS_TO_PASS)
-        )
+        pass_tests = "\n".join(f"- {t}" for t in test_spec.PASS_TO_PASS)
+        parts.append(f"\nTests to keep passing (PASS_TO_PASS):\n{pass_tests}")
 
     if instance.get("hints_text"):
         parts.append(f"\nHints: {instance['hints_text']}")
 
     return "\n".join(parts)
+

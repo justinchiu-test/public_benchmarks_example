@@ -1,8 +1,9 @@
 # Copied from: https://github.com/SWE-Gym/SWE-Bench-Fork/blob/main/swebench/harness/dockerfiles.py
 
 # IF you change the base image, you need to rebuild all images (run with --force_rebuild)
+# swebench base was: FROM public.ecr.aws/f7m5a7m8/devbox:prod
 _DOCKERFILE_BASE = r"""
-FROM --platform={platform} ubuntu:22.04
+FROM public.ecr.aws/f7m5a7m8/devbox:prod
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
