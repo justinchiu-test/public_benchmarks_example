@@ -895,6 +895,20 @@ wheels = [
 ]
 
 [[package]]
+name = "rl-cli"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "requests" },
+    { name = "runloop-api-client" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/53/71/02ca0750a00f484160a9aa9fef9d32d79b7f822ab466c33bdd8b258c17be/rl_cli-0.2.1.tar.gz", hash = "sha256:7e59cc8d6bbe59b2eda03d66cc36121bfea7c54d1188726241a2baf55a96d647", size = 12215, upload-time = "2025-01-17T00:30:16.054Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f6/65/fdd0b54d710ed8a3e5ff7d98ace00e65d0b0897c542275c90f5b25a5b272/rl_cli-0.2.1-py2.py3-none-any.whl", hash = "sha256:26e46ff5e089dcdd08bf3ab8c9a2e4c55736a40482a0dfda0ada11be107b898f", size = 9191, upload-time = "2025-01-17T00:30:14.876Z" },
+]
+
+[[package]]
 name = "rl-sweagent"
 version = "0.1.0"
 source = { editable = "." }
@@ -904,6 +918,7 @@ dependencies = [
     { name = "openai" },
     { name = "pre-commit" },
     { name = "pyright" },
+    { name = "rl-cli" },
     { name = "ruff" },
     { name = "runloop-api-client" },
     { name = "tqdm" },
@@ -916,6 +931,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.82.1" },
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "pyright", specifier = ">=1.1.402" },
+    { name = "rl-cli", specifier = ">=0.2.1" },
     { name = "ruff", specifier = ">=0.11.11" },
     { name = "runloop-api-client", specifier = ">=0.43.0" },
     { name = "tqdm", specifier = ">=4.66.0" },

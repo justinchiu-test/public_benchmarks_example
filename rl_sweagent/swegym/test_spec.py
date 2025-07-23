@@ -143,7 +143,7 @@ def make_repo_script_list(specs, repo, repo_directory, base_commit, env_name):
         # Remove the remote so the agent won't see newer commits.
         "git remote remove origin",
         # Make sure conda is available for later use
-        "source /home/user/miniconda3/bin/activate",
+        "source /opt/miniconda3/bin/activate",
         f"conda activate {env_name}",
         'echo "Current environment: $CONDA_DEFAULT_ENV"',
     ]
@@ -195,7 +195,7 @@ def make_env_script_list(
     """
     HEREDOC_DELIMITER = "EOF_59812759871"
     reqs_commands = [
-        "source /home/user/miniconda3/bin/activate",
+        "source /opt/miniconda3/bin/activate",
     ]
     # Create conda environment according to install instructinos
     pkgs = specs.get("packages", "")
@@ -304,7 +304,10 @@ def make_eval_script_list(
     )
     test_command = make_test_command(instance)
     eval_commands = [
-        "source /home/user/miniconda3/bin/activate",
+        # Clean Python environment to avoid conflicts
+        "unset PYTHONPATH",
+        "unset PYTHONHOME",
+        "source /opt/miniconda3/bin/activate",
         f"conda activate {env_name}",
         f"cd {repo_directory}",
     ]
@@ -317,8 +320,7 @@ def make_eval_script_list(
         "git status",
         "git show",
         f"git diff {base_commit}",
-        "source /home/user/miniconda3/bin/activate",
-        f"conda activate {env_name}",
+        # Don't re-activate conda, we already did it above
     ]
     if "install" in specs:
         eval_commands.append(specs["install"])

@@ -13,7 +13,9 @@ from rl_sweagent.swegym.scenario_builder import create_swegym_scenario
 from rl_sweagent.swegym.test_spec import make_test_spec
 
 
-async def test_scenario_with_gold_patch(client: AsyncRunloop, scenario_id: str) -> Dict:
+async def test_scenario_with_gold_patch(
+    client: AsyncRunloop, scenario_id: str, instance_id: str = None
+) -> Dict:
     """Test that a scenario behaves correctly with the gold patch stored in reference_output."""
 
     try:
@@ -25,12 +27,26 @@ async def test_scenario_with_gold_patch(client: AsyncRunloop, scenario_id: str) 
             scenario_id=scenario_id
         )
 
+        print(f"[{instance_id}] Testing gold patch on devbox: {scenario_run.devbox_id}")
+
         # Write patch to /home/user/ref.patch (like run_gold_patch.py)
         await client.devboxes.write_file_contents(
             id=scenario_run.devbox_id,
             file_path="/home/user/ref.patch",
             contents=scenario.reference_output or "",
         )
+
+        # Verify patch file was written
+        verify_result = await client.devboxes.execute_sync(
+            id=scenario_run.devbox_id,
+            command="ls -la /home/user/ref.patch && wc -l /home/user/ref.patch",
+        )
+        if verify_result.exit_status != 0:
+            print(
+                f"[{instance_id}] ERROR: Failed to verify patch file: {verify_result.exit_status}"
+            )
+            print(f"[{instance_id}] ERROR Stdout: {verify_result.stdout}")
+            print(f"[{instance_id}] ERROR Stderr: {verify_result.stderr}")
 
         # Determine patch direction (reverse or normal)
         if (
@@ -43,6 +59,18 @@ async def test_scenario_with_gold_patch(client: AsyncRunloop, scenario_id: str) 
         else:
             patch_apply_flags = "-p1"
 
+        # Check current state before patching (add safe.directory for git operations)
+        pre_patch_check = await client.devboxes.execute_sync(
+            id=scenario_run.devbox_id,
+            command="git config --global --add safe.directory /testbed && cd /testbed && pwd && git status --short",
+        )
+        if pre_patch_check.exit_status != 0:
+            print(
+                f"[{instance_id}] ERROR: Pre-patch check failed: {pre_patch_check.exit_status}"
+            )
+            print(f"[{instance_id}] ERROR Stdout: {pre_patch_check.stdout}")
+            print(f"[{instance_id}] ERROR Stderr: {pre_patch_check.stderr}")
+
         # Apply patch (like run_gold_patch.py)
         patch_result = await client.devboxes.execute_sync(
             id=scenario_run.devbox_id,
@@ -51,16 +79,48 @@ async def test_scenario_with_gold_patch(client: AsyncRunloop, scenario_id: str) 
 
         patch_applied = patch_result.exit_status == 0
 
+        # Print error details if patch application failed
+        if not patch_applied:
+            print(
+                f"[{instance_id}] ERROR: Patch application failed with exit code: {patch_result.exit_status}"
+            )
+            print(f"[{instance_id}] ERROR Stdout: {patch_result.stdout}")
+            print(f"[{instance_id}] ERROR Stderr: {patch_result.stderr}")
+        else:
+            # Check what changed after patch
+            post_patch_check = await client.devboxes.execute_sync(
+                id=scenario_run.devbox_id,
+                command="cd /testbed && git diff --name-only",
+            )
+            if post_patch_check.exit_status != 0:
+                print(
+                    f"[{instance_id}] ERROR: Post-patch check failed: {post_patch_check.exit_status}"
+                )
+                print(f"[{instance_id}] ERROR Stdout: {post_patch_check.stdout}")
+                print(f"[{instance_id}] ERROR Stderr: {post_patch_check.stderr}")
+
         # Score the scenario with the patch applied
         result = await client.scenarios.runs.score_and_await(id=scenario_run.id)
 
-        # Get the score
+        # Get the score and output
         score = 0.0
+        scoring_output = None
         if result.scoring_contract_result:
             score = result.scoring_contract_result.score
+            # Get the scoring output directly from the result
+            if result.scoring_contract_result.scoring_function_results:
+                scoring_output = (
+                    result.scoring_contract_result.scoring_function_results[0].output
+                )
+                print(f"[{instance_id}] Scoring output:")
+                print("-" * 80)
+                print(scoring_output[:2000])  # First 2000 chars
+                if len(scoring_output) > 2000:
+                    print(f"... (truncated, total length: {len(scoring_output)} chars)")
+                print("-" * 80)
 
         # Complete the run to clean up
-        await client.scenarios.runs.complete(id=scenario_run.id)
+        # await client.scenarios.runs.complete(id=scenario_run.id)
 
         # Determine status based on score
         if not patch_applied:
@@ -77,6 +137,10 @@ async def test_scenario_with_gold_patch(client: AsyncRunloop, scenario_id: str) 
             "score": score,
             "patch_applied": patch_applied,
             "run_id": scenario_run.id,
+            "devbox_id": scenario_run.devbox_id,
+            "scoring_output": scoring_output[:1000]
+            if scoring_output
+            else None,  # Truncate for storage
         }
 
     except Exception as e:
@@ -152,7 +216,7 @@ async def create_swegym_benchmark(
             if test_gold_patch and instance.get("patch"):
                 print(f"[INFO] Testing gold patch for {instance_id}...")
                 gold_patch_result = await test_scenario_with_gold_patch(
-                    client, scenario.id
+                    client, scenario.id, instance_id
                 )
                 print(f"[INFO] Gold patch test result: {gold_patch_result['status']}")
 

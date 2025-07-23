@@ -23,7 +23,7 @@ async def create_swegym_scenario(
     """
 
     instance_id = instance["instance_id"]
-    print(f"[INFO] Creating scenario for: {instance_id}")
+    print(f"[{instance_id}] Creating scenario")
 
     # We'll detect architecture after creating the devbox
     arch = "aarch64"  # Default, will be updated later
@@ -31,6 +31,10 @@ async def create_swegym_scenario(
     # Generate base setup script (translated from _DOCKERFILE_BASE)
     base_setup_script = f"""#!/bin/bash
 set -euxo pipefail
+
+# Clean Python environment variables that might conflict
+unset PYTHONPATH
+unset PYTHONHOME
 
 # Set environment variables
 export DEBIAN_FRONTEND=noninteractive
@@ -56,7 +60,7 @@ sudo apt update && sudo apt install -y \\
 sudo rm -rf /var/lib/apt/lists/*
 
 # Download and install conda at /opt/miniconda3 (MUST use this path from Dockerfile)
-wget 'https://repo.anaconda.com/miniconda/Miniconda3-py311_24.7.1-0-Linux-{arch}.sh' -O miniconda.sh
+wget 'https://repo.anaconda.com/miniconda/Miniconda3-py312_24.7.1-0-Linux-{arch}.sh' -O miniconda.sh
 sudo bash miniconda.sh -b -p /opt/miniconda3
 rm miniconda.sh
 
@@ -98,28 +102,36 @@ set -euxo pipefail
 
     # Generate scoring script (evaluation)
     scoring_script = f"""#!/bin/bash
-set -eo pipefail
+# Don't use -e flag to match eval script behavior
+set -xo pipefail
 
-# Source conda from /opt/miniconda3 (as per Dockerfile)
-source /opt/miniconda3/etc/profile.d/conda.sh
+# Clean environment before running eval script
+unset PYTHONPATH
+unset PYTHONHOME
 
-# Run evaluation
+# Run evaluation (eval script will handle conda activation)
 {test_spec.eval_script}
 
+# Capture the exit code
+EVAL_EXIT_CODE=$?
+
 # Return score based on exit code
-if [ $? -eq 0 ]; then
+if [ $EVAL_EXIT_CODE -eq 0 ]; then
     echo "1.0"
 else
     echo "0.0"
 fi
+
+# Exit with success so Runloop knows the scoring script ran
+exit 0
 """
 
     # Create or reuse snapshot
     if use_snapshot:
         snapshot_id = use_snapshot
-        print(f"[INFO] Using existing snapshot: {snapshot_id}")
+        print(f"[{instance_id}] Using existing snapshot: {snapshot_id}")
     else:
-        print("[INFO] Creating new devbox...")
+        print(f"[{instance_id}] Creating new devbox...")
 
         # Create devbox
         devbox = await client.devboxes.create_and_await_running(
@@ -130,20 +142,20 @@ fi
                 "version": test_spec.version,
             },
         )
-        print(f"[INFO] Devbox created with ID: {devbox.id}")
+        print(f"[{instance_id}] Devbox created with ID: {devbox.id}")
 
         # Detect architecture
         arch_result = await client.devboxes.execute_sync(
             id=devbox.id, command="uname -m"
         )
         arch = "aarch64" if "aarch64" in arch_result.stdout else "x86_64"
-        print(f"[INFO] Detected architecture: {arch}")
+        print(f"[{instance_id}] Detected architecture: {arch}")
 
         # Update base setup script with correct architecture
         base_setup_script = base_setup_script.replace("{arch}", arch)
 
         # Stage 1: Base setup (system packages + conda)
-        print("[INFO] Stage 1: Running base setup...")
+        print(f"[{instance_id}] Stage 1: Running base setup...")
         await client.devboxes.write_file_contents(
             id=devbox.id, file_path="/tmp/base_setup.sh", contents=base_setup_script
         )
@@ -155,15 +167,17 @@ fi
         )
 
         if result.exit_status != 0:
-            print(f"[ERROR] Base setup failed with exit code: {result.exit_status}")
+            print(
+                f"[{instance_id}] ERROR: Base setup failed with exit code: {result.exit_status}"
+            )
             if result.stderr:
-                print(f"[ERROR] stderr: {result.stderr[-1000:]}")
+                print(f"[{instance_id}] ERROR stderr: {result.stderr[-1000:]}")
             raise Exception("Base setup failed")
 
-        print("[SUCCESS] Base setup completed!")
+        print(f"[{instance_id}] SUCCESS: Base setup completed!")
 
         # Stage 2: Environment setup (conda environment)
-        print("[INFO] Stage 2: Running environment setup...")
+        print(f"[{instance_id}] Stage 2: Running environment setup...")
 
         # Write setup_env.sh to /root/ (as per Dockerfile)
         await client.devboxes.execute_sync(id=devbox.id, command="sudo mkdir -p /root")
@@ -186,16 +200,16 @@ fi
 
         if result.exit_status != 0:
             print(
-                f"[ERROR] Environment setup failed with exit code: {result.exit_status}"
+                f"[{instance_id}] ERROR: Environment setup failed with exit code: {result.exit_status}"
             )
             if result.stderr:
-                print(f"[ERROR] stderr: {result.stderr[-1000:]}")
+                print(f"[{instance_id}] ERROR stderr: {result.stderr[-1000:]}")
             raise Exception("Environment setup failed")
 
-        print("[SUCCESS] Environment setup completed!")
+        print(f"[{instance_id}] SUCCESS: Environment setup completed!")
 
         # Stage 3: Repository setup
-        print("[INFO] Stage 3: Running repository setup...")
+        print(f"[{instance_id}] Stage 3: Running repository setup...")
 
         # Write setup_repo.sh to /root/ (as per Dockerfile)
         await client.devboxes.write_file_contents(
@@ -216,36 +230,83 @@ fi
 
         if result.exit_status != 0:
             print(
-                f"[ERROR] Repository setup failed with exit code: {result.exit_status}"
+                f"[{instance_id}] ERROR: Repository setup failed with exit code: {result.exit_status}"
             )
             if result.stderr:
-                print(f"[ERROR] stderr: {result.stderr[-1000:]}")
+                print(f"[{instance_id}] ERROR stderr: {result.stderr[-1000:]}")
             raise Exception("Repository setup failed")
 
-        print("[SUCCESS] Repository setup completed!")
+        print(f"[{instance_id}] SUCCESS: Repository setup completed!")
 
-        # Final verification
-        verify_result = await client.devboxes.execute_sync(
-            id=devbox.id,
-            command="ls -la /testbed/.git 2>&1 | head -3 && echo '---' && conda env list",
-        )
-        print("[INFO] Verification:")
-        print(verify_result.stdout)
+        # Comprehensive verification
+        print(f"[{instance_id}] Running comprehensive verification...")
+
+        verification_commands = [
+            # Check repository
+            ("cd /testbed && pwd", "Repository exists"),
+            ("cd /testbed && git status --short", "Git status clean"),
+            ("cd /testbed && git log --oneline -1", "Git history"),
+            ("cd /testbed && git remote -v || echo 'No remotes'", "Git remotes"),
+            # Check conda environment
+            (
+                "source /opt/miniconda3/bin/activate && conda env list",
+                "Conda environments",
+            ),
+            (
+                "source /opt/miniconda3/bin/activate && conda activate testbed && which python",
+                "Python location",
+            ),
+            (
+                "source /opt/miniconda3/bin/activate && conda activate testbed && python --version",
+                "Python version",
+            ),
+            # Check package installed (try to import the main package)
+            (
+                "source /opt/miniconda3/bin/activate && conda activate testbed && python -c 'import sys; print(sys.path[0])'",
+                "Python path",
+            ),
+            # Check test files exist
+            ("find /testbed -name 'test_*.py' -type f | wc -l", "Test files count"),
+            # Check permissions
+            ("stat -c '%U:%G %a' /testbed", "Repository permissions"),
+            # Show testbed directory structure
+            ("ls -la /testbed | head -10", "Testbed directory"),
+        ]
+
+        all_passed = True
+        for cmd, description in verification_commands:
+            result = await client.devboxes.execute_sync(
+                id=devbox.id, command=cmd, timeout=30000
+            )
+            if result.exit_status != 0:
+                print(
+                    f"[{instance_id}] ❌ {description}: FAILED (exit code: {result.exit_status})"
+                )
+                if result.stderr:
+                    print(f"[{instance_id}]    stderr: {result.stderr.strip()}")
+                all_passed = False
+            else:
+                # Get first line of output
+                output = result.stdout.strip().split("\n")[0] if result.stdout else "OK"
+                print(f"[{instance_id}] ✓ {description}: {output}")
+
+        if not all_passed:
+            print(f"[{instance_id}] WARNING: Some verification checks failed!")
 
         # Create snapshot
-        print("[INFO] Creating snapshot...")
+        print(f"[{instance_id}] Creating snapshot...")
         snapshot = await client.devboxes.snapshot_disk(
             id=devbox.id, name=f"swegym-{instance_id}-snapshot", timeout=300
         )
         snapshot_id = snapshot.id
-        print(f"[INFO] Snapshot created with ID: {snapshot_id}")
+        print(f"[{instance_id}] Snapshot created with ID: {snapshot_id}")
 
         # Shutdown devbox
-        await client.devboxes.shutdown(id=devbox.id)
-        print("[INFO] Devbox shut down")
+        # await client.devboxes.shutdown(id=devbox.id)
+        # print(f"[{instance_id}] Devbox shut down")
 
     # Create scenario
-    print("[INFO] Creating scenario...")
+    print(f"[{instance_id}] Creating scenario...")
     scenario_config = {
         "name": f"swegym-{instance_id}",
         "input_context": InputContextParam(
@@ -277,7 +338,7 @@ fi
     }
 
     scenario = await client.scenarios.create(**scenario_config)
-    print(f"[INFO] Scenario created with ID: {scenario.id}")
+    print(f"[{instance_id}] Scenario created with ID: {scenario.id}")
 
     # Save scenario details
     import json
@@ -295,7 +356,7 @@ fi
 
     with open(f"scenario_{instance_id}.json", "w") as f:
         json.dump(details, f, indent=2)
-    print(f"[INFO] Scenario details saved to scenario_{instance_id}.json")
+    print(f"[{instance_id}] Scenario details saved to scenario_{instance_id}.json")
 
     return scenario
 
