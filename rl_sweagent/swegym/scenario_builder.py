@@ -244,6 +244,7 @@ exit 0
         verification_commands = [
             # Check repository
             ("cd /testbed && pwd", "Repository exists"),
+            ("git config --global --add safe.directory /testbed", "Git safe directory"),
             ("cd /testbed && git status --short", "Git status clean"),
             ("cd /testbed && git log --oneline -1", "Git history"),
             ("cd /testbed && git remote -v || echo 'No remotes'", "Git remotes"),
