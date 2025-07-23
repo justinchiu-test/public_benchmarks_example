@@ -102,10 +102,16 @@ fi
                     f"echo '{setup_script_b64}' | base64 -d > /tmp/setup.sh",
                     "chmod +x /tmp/setup.sh",
                     "echo '[INFO] Setup script written to /tmp/setup.sh'",
-                    "echo '[INFO] Running setup script, logs will be written to /tmp/setup.log'",
-                    "bash /tmp/setup.sh > /tmp/setup.log 2>&1",
-                    "echo '[INFO] Setup script exit code: '$?",
-                    "echo '[INFO] Setup log tail:' && tail -20 /tmp/setup.log",
+                    "echo '[INFO] Running setup script, logs will be written to /tmp/setup.log and /tmp/setup.err'",
+                    "bash /tmp/setup.sh > /tmp/setup.log 2>/tmp/setup.err || echo '[ERROR] Setup failed with exit code: '$?",
+                    "echo '[INFO] === Setup stdout (last 30 lines) ==='",
+                    "tail -30 /tmp/setup.log || echo 'No setup.log found'",
+                    "echo '[INFO] === Setup stderr (last 30 lines) ==='",
+                    "tail -30 /tmp/setup.err || echo 'No setup.err found'",
+                    "echo '[INFO] === Debug info ==='",
+                    "echo 'Python version:' && python3 --version",
+                    "echo 'Conda installed:' && which conda || echo 'conda not found'",
+                    "echo 'Testbed exists:' && ls -la /testbed 2>&1 | head -3 || echo '/testbed not found'",
                 ]
             ),
             metadata={
@@ -115,10 +121,22 @@ fi
             },
         )
         print(f"[INFO] Devbox created with ID: {devbox.id}")
-        print("[INFO] Setup logs are available at /tmp/setup.log in the devbox")
+        print("[INFO] Setup logs are available at:")
+        print(f"  - stdout: /tmp/setup.log")
+        print(f"  - stderr: /tmp/setup.err")
+        print(f"[INFO] To view setup logs after creation:")
         print(
-            f"[INFO] To view logs, run: uv run python -c \"import asyncio; from runloop_api_client import AsyncRunloop; asyncio.run(AsyncRunloop().devboxes.execute_sync('{devbox.id}', 'cat /tmp/setup.log'))\""
+            f"  uv run python -c \"import asyncio; from runloop_api_client import AsyncRunloop; asyncio.run(AsyncRunloop().devboxes.execute_sync('{devbox.id}', 'cat /tmp/setup.log'))\""
         )
+        print(f"[INFO] To view setup errors after creation:")
+        print(
+            f"  uv run python -c \"import asyncio; from runloop_api_client import AsyncRunloop; asyncio.run(AsyncRunloop().devboxes.execute_sync('{devbox.id}', 'cat /tmp/setup.err'))\""
+        )
+        print(f"[INFO] To debug the setup interactively:")
+        print(
+            f"  uv run python -c \"import asyncio; from runloop_api_client import AsyncRunloop; client = AsyncRunloop(); asyncio.run(client.devboxes.execute_sync('{devbox.id}', 'bash'))\""
+        )
+        print("[INFO] Setup script is running...")
 
         # Create snapshot
         print("[INFO] Creating snapshot...")
