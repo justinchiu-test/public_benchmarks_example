@@ -11,6 +11,7 @@ from runloop_api_client.types import (
     ScoringContractParam,
 )
 
+from rl_sweagent.swegym.constants import USE_X86
 from rl_sweagent.swegym.test_spec import TestSpec
 
 
@@ -173,9 +174,20 @@ exit 0
     # Create new devbox
     print(f"[{instance_id}] Creating new devbox...")
 
+    # Determine architecture based on USE_X86 list
+    launch_params = {}
+    if instance_id in USE_X86:
+        launch_params["architecture"] = "x86_64"
+        print(f"[{instance_id}] Using x86_64 architecture (instance in USE_X86 list)")
+    else:
+        # Default to arm64 if not in USE_X86 list
+        launch_params["architecture"] = "arm64"
+        print(f"[{instance_id}] Using arm64 architecture (default)")
+
     # Create devbox
     devbox = await client.devboxes.create_and_await_running(
         name=f"SWE-Gym-{instance_id}",
+        launch_parameters=launch_params,
         metadata={
             "instance_id": instance_id,
             "repo": test_spec.repo,
@@ -201,7 +213,9 @@ exit 0
     )
 
     # Update base setup script with correct architecture
-    base_setup_script = base_setup_script.replace("{arch}", arch)
+    # Map uname -m output to conda architecture names
+    conda_arch = "aarch64" if arch == "aarch64" else "x86_64"
+    base_setup_script = base_setup_script.replace("{arch}", conda_arch)
 
     # Stage 1: Base setup (system packages + conda)
     print(f"[{instance_id}] Stage 1: Running base setup...")
@@ -212,7 +226,7 @@ exit 0
     result = await client.devboxes.execute_sync(
         id=devbox.id,
         command="chmod +x /tmp/base_setup.sh && bash /tmp/base_setup.sh",
-        timeout=600,  # 10 minutes
+        timeout=1800,  # 30 minutes
     )
 
     # Log command execution
@@ -257,7 +271,7 @@ exit 0
     result = await client.devboxes.execute_sync(
         id=devbox.id,
         command='sudo /bin/bash -c "source ~/.bashrc && /root/setup_env.sh"',
-        timeout=600,  # 10 minutes
+        timeout=1800,  # 30 minutes
     )
 
     # Log command execution
@@ -300,7 +314,7 @@ exit 0
     result = await client.devboxes.execute_sync(
         id=devbox.id,
         command="sudo /bin/bash /root/setup_repo.sh",
-        timeout=600,  # 10 minutes
+        timeout=1800,  # 30 minutes
     )
 
     # Log command execution
@@ -342,20 +356,25 @@ exit 0
             "Conda environments",
         ),
         (
-            "source /opt/miniconda3/bin/activate && conda activate testbed && which python",
-            "Python location",
+            "source /opt/miniconda3/bin/activate && conda activate testbed && echo 'PYTHONPATH='$PYTHONPATH && echo 'PYTHONHOME='$PYTHONHOME && echo 'LD_LIBRARY_PATH='$LD_LIBRARY_PATH && which python",
+            "Python location and env vars",
         ),
         (
-            "source /opt/miniconda3/bin/activate && conda activate testbed && python --version",
+            "source /opt/miniconda3/bin/activate && conda activate testbed && unset PYTHONPATH && unset PYTHONHOME && python --version",
             "Python version",
         ),
         # Check package installed (try to import the main package)
         (
-            "source /opt/miniconda3/bin/activate && conda activate testbed && python -c 'import sys; print(sys.path[0])'",
+            "source /opt/miniconda3/bin/activate && conda activate testbed && unset PYTHONPATH && unset PYTHONHOME && python -c 'import sys; print(sys.path[0])'",
             "Python path",
         ),
         # Check test files exist
         ("find /testbed -name 'test_*.py' -type f | wc -l", "Test files count"),
+        # Environment diagnostics
+        (
+            "env | grep -E '^(PYTHON|LD_LIBRARY|PATH)' | sort",
+            "Environment variables",
+        ),
         # Check permissions
         ("stat -c '%U:%G %a' /testbed", "Repository permissions"),
         # Show testbed directory structure
@@ -366,7 +385,7 @@ exit 0
     verification_logs = []
     for cmd, description in verification_commands:
         result = await client.devboxes.execute_sync(
-            id=devbox.id, command=cmd, timeout=600
+            id=devbox.id, command=cmd, timeout=1800
         )
 
         # Log verification command
@@ -406,7 +425,7 @@ exit 0
     # Create snapshot
     print(f"[{instance_id}] Creating snapshot...")
     snapshot = await client.devboxes.snapshot_disk(
-        id=devbox.id, name=f"swegym-{instance_id}-snapshot", timeout=600
+        id=devbox.id, name=f"swegym-{instance_id}-snapshot", timeout=1800
     )
     snapshot_id = snapshot.id
     print(f"[{instance_id}] Snapshot created with ID: {snapshot_id}")

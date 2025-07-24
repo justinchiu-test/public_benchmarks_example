@@ -1618,7 +1618,18 @@ USE_X86 = {
     "sympy__sympy-14248",
     "sympy__sympy-15222",
     "sympy__sympy-19201",
+    # Bokeh instances require Firefox and geckodriver which are not available for ARM
+    "bokeh__bokeh-13239",
+    "bokeh__bokeh-13298",
+    "bokeh__bokeh-13370",
+    "bokeh__bokeh-13641",
     "bokeh__bokeh-13721",
+    # Dask instances require crick package which is not available for ARM
+    "dask__dask-6862",
+    "dask__dask-6960",
+    "dask__dask-7688",
+    "dask__dask-8462",
+    "dask__dask-10441",
 }
 
 
