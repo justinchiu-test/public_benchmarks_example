@@ -15,9 +15,15 @@ from rl_sweagent.swegym.test_spec import make_test_spec
 
 
 async def test_scenario_with_gold_patch(
-    client: AsyncRunloop, scenario_id: str, instance_id: str = None
+    client: AsyncRunloop,
+    scenario_id: str,
+    instance_id: str = None,
+    benchmark_name: str = "swegym",
 ) -> Dict:
     """Test that a scenario behaves correctly with the gold patch stored in reference_output."""
+
+    # Track all command executions for debugging
+    command_logs = []
 
     try:
         # Retrieve the scenario to get reference_output and metadata
@@ -42,6 +48,18 @@ async def test_scenario_with_gold_patch(
             id=scenario_run.devbox_id,
             command="ls -la /home/user/ref.patch && wc -l /home/user/ref.patch",
         )
+
+        # Log command execution
+        command_logs.append(
+            {
+                "stage": "verify_patch_file",
+                "command": "ls -la /home/user/ref.patch && wc -l /home/user/ref.patch",
+                "exit_status": verify_result.exit_status,
+                "stdout": verify_result.stdout if verify_result.stdout else "",
+                "stderr": verify_result.stderr if verify_result.stderr else "",
+            }
+        )
+
         if verify_result.exit_status != 0:
             print(
                 f"[{instance_id}] ERROR: Failed to verify patch file: {verify_result.exit_status}"
@@ -65,6 +83,18 @@ async def test_scenario_with_gold_patch(
             id=scenario_run.devbox_id,
             command="git config --global --add safe.directory /testbed && cd /testbed && pwd && git status --short",
         )
+
+        # Log command execution
+        command_logs.append(
+            {
+                "stage": "pre_patch_check",
+                "command": "git config --global --add safe.directory /testbed && cd /testbed && pwd && git status --short",
+                "exit_status": pre_patch_check.exit_status,
+                "stdout": pre_patch_check.stdout if pre_patch_check.stdout else "",
+                "stderr": pre_patch_check.stderr if pre_patch_check.stderr else "",
+            }
+        )
+
         if pre_patch_check.exit_status != 0:
             print(
                 f"[{instance_id}] ERROR: Pre-patch check failed: {pre_patch_check.exit_status}"
@@ -76,6 +106,17 @@ async def test_scenario_with_gold_patch(
         patch_result = await client.devboxes.execute_sync(
             id=scenario_run.devbox_id,
             command=f"cd /testbed && patch {patch_apply_flags} < /home/user/ref.patch",
+        )
+
+        # Log command execution
+        command_logs.append(
+            {
+                "stage": "apply_patch",
+                "command": f"cd /testbed && patch {patch_apply_flags} < /home/user/ref.patch",
+                "exit_status": patch_result.exit_status,
+                "stdout": patch_result.stdout if patch_result.stdout else "",
+                "stderr": patch_result.stderr if patch_result.stderr else "",
+            }
         )
 
         patch_applied = patch_result.exit_status == 0
@@ -93,6 +134,22 @@ async def test_scenario_with_gold_patch(
                 id=scenario_run.devbox_id,
                 command="cd /testbed && git diff --name-only",
             )
+
+            # Log command execution
+            command_logs.append(
+                {
+                    "stage": "post_patch_check",
+                    "command": "cd /testbed && git diff --name-only",
+                    "exit_status": post_patch_check.exit_status,
+                    "stdout": post_patch_check.stdout
+                    if post_patch_check.stdout
+                    else "",
+                    "stderr": post_patch_check.stderr
+                    if post_patch_check.stderr
+                    else "",
+                }
+            )
+
             if post_patch_check.exit_status != 0:
                 print(
                     f"[{instance_id}] ERROR: Post-patch check failed: {post_patch_check.exit_status}"
@@ -135,6 +192,29 @@ async def test_scenario_with_gold_patch(
         else:
             status = "failed"  # Gold patch didn't work
 
+        # Save command logs
+        log_dir = os.path.join("logs", benchmark_name, instance_id)
+        os.makedirs(log_dir, exist_ok=True)
+
+        filename = os.path.join(log_dir, "gold_patch_test_logs.json")
+        async with aiofiles.open(filename, mode="w") as f:
+            await f.write(
+                json.dumps(
+                    {
+                        "instance_id": instance_id,
+                        "scenario_id": scenario_id,
+                        "devbox_id": scenario_run.devbox_id,
+                        "status": status,
+                        "score": score,
+                        "patch_applied": patch_applied,
+                        "command_logs": command_logs,
+                        "scoring_output": scoring_output if scoring_output else None,
+                    },
+                    indent=2,
+                )
+            )
+        print(f"[{instance_id}] Gold patch test logs saved to {filename}")
+
         return {
             "status": status,
             "score": score,
@@ -147,13 +227,40 @@ async def test_scenario_with_gold_patch(
         }
 
     except Exception as e:
+        # Save command logs even on error
+        if command_logs:
+            log_dir = os.path.join("logs", benchmark_name, instance_id)
+            os.makedirs(log_dir, exist_ok=True)
+
+            filename = os.path.join(log_dir, "gold_patch_test_logs.json")
+            async with aiofiles.open(filename, mode="w") as f:
+                await f.write(
+                    json.dumps(
+                        {
+                            "instance_id": instance_id,
+                            "scenario_id": scenario_id,
+                            "status": "error",
+                            "error": str(e),
+                            "command_logs": command_logs,
+                        },
+                        indent=2,
+                    )
+                )
+            print(f"[{instance_id}] Gold patch test error logs saved to {filename}")
+
         return {"status": "error", "error": str(e)}
 
 
 async def append_to_jsonl(
-    record: dict, output_file: str = "swegym_scenarios.jsonl", lock: asyncio.Lock = None
+    record: dict, benchmark_name: str = "swegym", lock: asyncio.Lock = None
 ):
     """Append a single record to the JSONL file in a thread-safe manner."""
+    # Create logs directory for the benchmark
+    log_dir = os.path.join("logs", benchmark_name)
+    os.makedirs(log_dir, exist_ok=True)
+
+    output_file = os.path.join(log_dir, "scenarios.jsonl")
+
     async with lock if lock else asyncio.Lock():
         async with aiofiles.open(output_file, mode="a") as f:
             await f.write(json.dumps(record) + "\n")
@@ -167,6 +274,7 @@ async def process_instance(
     test_gold_patch: bool,
     semaphore: asyncio.Semaphore,
     file_lock: asyncio.Lock,
+    benchmark_name: str = "swegym",
 ):
     """Process a single instance to create a scenario."""
     async with semaphore:
@@ -180,14 +288,16 @@ async def process_instance(
             test_spec = make_test_spec(instance)
 
             # Create scenario with its own snapshot
-            scenario = await create_swegym_scenario(client, instance, test_spec)
+            scenario = await create_swegym_scenario(
+                client, instance, test_spec, benchmark_name
+            )
 
             # Test gold patch if requested
             gold_patch_result = None
             if test_gold_patch and instance.get("patch"):
                 print(f"[{instance_id}] Testing gold patch...")
                 gold_patch_result = await test_scenario_with_gold_patch(
-                    client, scenario.id, instance_id
+                    client, scenario.id, instance_id, benchmark_name
                 )
                 print(
                     f"[{instance_id}] Gold patch test result: {gold_patch_result['status']}"
@@ -209,8 +319,8 @@ async def process_instance(
                 "repo": instance.get("repo", ""),
                 "version": instance.get("version", ""),
             }
-            await append_to_jsonl(record, lock=file_lock)
-            print(f"[{instance_id}] Saved to swegym_scenarios.jsonl")
+            await append_to_jsonl(record, benchmark_name, lock=file_lock)
+            print(f"[{instance_id}] Saved to logs/{benchmark_name}/scenarios.jsonl")
 
             return {
                 "instance_id": instance_id,
@@ -235,7 +345,7 @@ async def process_instance(
                 "version": instance.get("version", ""),
                 "error": str(e),
             }
-            await append_to_jsonl(failed_record, lock=file_lock)
+            await append_to_jsonl(failed_record, benchmark_name, lock=file_lock)
 
             return {
                 "instance_id": instance_id,
@@ -300,6 +410,7 @@ async def create_swegym_benchmark(
             test_gold_patch,
             semaphore,
             file_lock,
+            benchmark_name,
         )
         tasks.append(task)
 
@@ -625,7 +736,13 @@ async def main():
             "results": results,
         }
 
-        output_file = f"benchmark_{benchmark.id if benchmark else 'failed'}.json"
+        # Save to logs directory
+        log_dir = os.path.join("logs", args.name)
+        os.makedirs(log_dir, exist_ok=True)
+
+        output_file = os.path.join(
+            log_dir, f"benchmark_{benchmark.id if benchmark else 'failed'}.json"
+        )
         with open(output_file, "w") as f:
             json.dump(output, f, indent=2)
 

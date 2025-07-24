@@ -1,5 +1,9 @@
 """Build Runloop scenarios from SWE-Gym instances."""
 
+import json
+import os
+
+import aiofiles
 from runloop_api_client import AsyncRunloop
 from runloop_api_client.types import (
     InputContextParam,
@@ -10,17 +14,36 @@ from runloop_api_client.types import (
 from rl_sweagent.swegym.test_spec import TestSpec
 
 
-async def create_swegym_scenario(client: AsyncRunloop, instance: dict, test_spec):
+async def save_command_logs(
+    instance_id: str, command_logs: list, benchmark_name: str = "swegym"
+):
+    """Save command execution logs to a JSON file in logs/{benchmark}/{instance_id}/"""
+    log_dir = os.path.join("logs", benchmark_name, instance_id)
+    os.makedirs(log_dir, exist_ok=True)
+
+    filename = os.path.join(log_dir, "scenario_creation_logs.json")
+    async with aiofiles.open(filename, mode="w") as f:
+        await f.write(json.dumps(command_logs, indent=2))
+    print(f"[{instance_id}] Command logs saved to {filename}")
+
+
+async def create_swegym_scenario(
+    client: AsyncRunloop, instance: dict, test_spec, benchmark_name: str = "swegym"
+):
     """Create a Runloop scenario from a SWE-Gym instance
 
     Args:
         client: AsyncRunloop client
         instance: SWE-Gym instance dictionary
         test_spec: TestSpec object created from the instance
+        benchmark_name: Name of the benchmark for organizing logs
     """
 
     instance_id = instance["instance_id"]
     print(f"[{instance_id}] Creating scenario")
+
+    # Track all command executions for debugging
+    command_logs = []
 
     # We'll detect architecture after creating the devbox
     arch = "aarch64"  # Default, will be updated later
@@ -142,6 +165,17 @@ exit 0
     arch = "aarch64" if "aarch64" in arch_result.stdout else "x86_64"
     print(f"[{instance_id}] Detected architecture: {arch}")
 
+    # Log command execution
+    command_logs.append(
+        {
+            "stage": "architecture_detection",
+            "command": "uname -m",
+            "exit_status": arch_result.exit_status,
+            "stdout": arch_result.stdout,
+            "stderr": arch_result.stderr,
+        }
+    )
+
     # Update base setup script with correct architecture
     base_setup_script = base_setup_script.replace("{arch}", arch)
 
@@ -157,12 +191,25 @@ exit 0
         timeout=600,  # 10 minutes
     )
 
+    # Log command execution
+    command_logs.append(
+        {
+            "stage": "base_setup",
+            "command": "chmod +x /tmp/base_setup.sh && bash /tmp/base_setup.sh",
+            "exit_status": result.exit_status,
+            "stdout": result.stdout if result.stdout else "",  # Full output
+            "stderr": result.stderr if result.stderr else "",
+        }
+    )
+
     if result.exit_status != 0:
         print(
             f"[{instance_id}] ERROR: Base setup failed with exit code: {result.exit_status}"
         )
         if result.stderr:
             print(f"[{instance_id}] ERROR stderr: {result.stderr[-1000:]}")
+        # Save logs before raising exception
+        await save_command_logs(instance_id, command_logs, benchmark_name)
         raise Exception("Base setup failed")
 
     print(f"[{instance_id}] SUCCESS: Base setup completed!")
@@ -189,12 +236,25 @@ exit 0
         timeout=600,  # 10 minutes
     )
 
+    # Log command execution
+    command_logs.append(
+        {
+            "stage": "environment_setup",
+            "command": 'sudo /bin/bash -c "source ~/.bashrc && /root/setup_env.sh"',
+            "exit_status": result.exit_status,
+            "stdout": result.stdout if result.stdout else "",
+            "stderr": result.stderr if result.stderr else "",
+        }
+    )
+
     if result.exit_status != 0:
         print(
             f"[{instance_id}] ERROR: Environment setup failed with exit code: {result.exit_status}"
         )
         if result.stderr:
             print(f"[{instance_id}] ERROR stderr: {result.stderr[-1000:]}")
+        # Save logs before raising exception
+        await save_command_logs(instance_id, command_logs, benchmark_name)
         raise Exception("Environment setup failed")
 
     print(f"[{instance_id}] SUCCESS: Environment setup completed!")
@@ -219,12 +279,25 @@ exit 0
         timeout=600,  # 10 minutes
     )
 
+    # Log command execution
+    command_logs.append(
+        {
+            "stage": "repository_setup",
+            "command": "sudo /bin/bash /root/setup_repo.sh",
+            "exit_status": result.exit_status,
+            "stdout": result.stdout if result.stdout else "",
+            "stderr": result.stderr if result.stderr else "",
+        }
+    )
+
     if result.exit_status != 0:
         print(
             f"[{instance_id}] ERROR: Repository setup failed with exit code: {result.exit_status}"
         )
         if result.stderr:
             print(f"[{instance_id}] ERROR stderr: {result.stderr[-1000:]}")
+        # Save logs before raising exception
+        await save_command_logs(instance_id, command_logs, benchmark_name)
         raise Exception("Repository setup failed")
 
     print(f"[{instance_id}] SUCCESS: Repository setup completed!")
@@ -266,10 +339,23 @@ exit 0
     ]
 
     all_passed = True
+    verification_logs = []
     for cmd, description in verification_commands:
         result = await client.devboxes.execute_sync(
             id=devbox.id, command=cmd, timeout=600
         )
+
+        # Log verification command
+        verification_logs.append(
+            {
+                "description": description,
+                "command": cmd,
+                "exit_status": result.exit_status,
+                "stdout": result.stdout if result.stdout else "",
+                "stderr": result.stderr if result.stderr else "",
+            }
+        )
+
         if result.exit_status != 0:
             print(
                 f"[{instance_id}] ❌ {description}: FAILED (exit code: {result.exit_status})"
@@ -280,6 +366,15 @@ exit 0
         else:
             output = result.stdout.strip() if result.stdout else "OK"
             print(f"[{instance_id}] ✓ {description}: {output}")
+
+    # Add verification logs to command logs
+    command_logs.append(
+        {
+            "stage": "verification",
+            "commands": verification_logs,
+            "all_passed": all_passed,
+        }
+    )
 
     if not all_passed:
         print(f"[{instance_id}] WARNING: Some verification checks failed!")
@@ -332,8 +427,6 @@ exit 0
     print(f"[{instance_id}] Scenario created with ID: {scenario.id}")
 
     # Save scenario details
-    import json
-
     details = {
         "scenario_id": scenario.id,
         "instance_id": instance_id,
@@ -345,9 +438,17 @@ exit 0
         "pass_to_pass": test_spec.PASS_TO_PASS,
     }
 
-    with open(f"scenario_{instance_id}.json", "w") as f:
+    # Save to logs directory
+    log_dir = os.path.join("logs", benchmark_name, instance_id)
+    os.makedirs(log_dir, exist_ok=True)
+
+    scenario_file = os.path.join(log_dir, "scenario_details.json")
+    with open(scenario_file, "w") as f:
         json.dump(details, f, indent=2)
-    print(f"[{instance_id}] Scenario details saved to scenario_{instance_id}.json")
+    print(f"[{instance_id}] Scenario details saved to {scenario_file}")
+
+    # Save command logs
+    await save_command_logs(instance_id, command_logs, benchmark_name)
 
     return scenario
 
