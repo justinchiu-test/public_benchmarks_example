@@ -1,11 +1,12 @@
 """Create SWE-Gym benchmarks using the swegym module."""
 
+import argparse
 import asyncio
 import json
 import os
-import sys
 from typing import Dict
 
+import aiofiles
 from datasets import load_dataset
 from runloop_api_client import AsyncRunloop
 
@@ -149,69 +150,37 @@ async def test_scenario_with_gold_patch(
         return {"status": "error", "error": str(e)}
 
 
-async def create_swegym_benchmark(
-    client: AsyncRunloop,
-    num_instances: int,
-    benchmark_name: str = "SWE-Gym Benchmark",
-    reuse_snapshot: bool = False,
-    start_from: int = 0,
-    test_gold_patch: bool = False,
+async def append_to_jsonl(
+    record: dict, output_file: str = "swegym_scenarios.jsonl", lock: asyncio.Lock = None
 ):
-    """Create multiple SWE-Gym scenarios and a benchmark."""
+    """Append a single record to the JSONL file in a thread-safe manner."""
+    async with lock if lock else asyncio.Lock():
+        async with aiofiles.open(output_file, mode="a") as f:
+            await f.write(json.dumps(record) + "\n")
 
-    print(
-        f"[INFO] Creating benchmark '{benchmark_name}' with {num_instances} scenarios..."
-    )
-    print(f"[INFO] Starting from instance index: {start_from}")
 
-    # Load SWE-Gym dataset
-    print("[INFO] Loading SWE-Gym dataset...")
-    dataset = load_dataset("SWE-Gym/SWE-Gym", split="train", streaming=True)
-
-    scenario_ids = []
-    snapshot_id = None
-    results = []
-    instance_count = 0
-    total_seen = 0
-
-    # Iterate through dataset
-    for instance in dataset:
-        # Skip instances before start_from
-        if total_seen < start_from:
-            total_seen += 1
-            continue
-
-        # Stop when we have enough instances
-        if instance_count >= num_instances:
-            break
-
-        instance_id = instance.get("instance_id", f"unknown_{instance_count}")
+async def process_instance(
+    client: AsyncRunloop,
+    instance: dict,
+    instance_index: int,
+    num_instances: int,
+    test_gold_patch: bool,
+    semaphore: asyncio.Semaphore,
+    file_lock: asyncio.Lock,
+):
+    """Process a single instance to create a scenario."""
+    async with semaphore:
+        instance_id = instance.get("instance_id", f"unknown_{instance_index}")
         print(
-            f"\n[{instance_id}] Creating scenario {instance_count + 1}/{num_instances}"
+            f"\n[{instance_id}] Creating scenario {instance_index + 1}/{num_instances}"
         )
 
         try:
             # Create test spec for this instance
             test_spec = make_test_spec(instance)
 
-            # Reuse snapshot if requested and available
-            use_snapshot = snapshot_id if reuse_snapshot and snapshot_id else None
-
-            scenario = await create_swegym_scenario(
-                client, instance, test_spec, use_snapshot=use_snapshot
-            )
-
-            scenario_ids.append(scenario.id)
-
-            # Save the snapshot ID for reuse if this is the first scenario
-            if reuse_snapshot and not snapshot_id:
-                # Read the saved scenario details to get snapshot ID
-                with open(f"scenario_{instance_id}.json", "r") as f:
-                    details = json.load(f)
-                    snapshot_id = details.get("snapshot_id")
-                    print(
-                        f"[{instance_id}] Will reuse snapshot {snapshot_id} for remaining scenarios"
-                    )
+            # Create scenario with its own snapshot
+            scenario = await create_swegym_scenario(client, instance, test_spec)
 
             # Test gold patch if requested
             gold_patch_result = None
@@ -224,31 +193,125 @@ async def create_swegym_benchmark(
                     f"[{instance_id}] Gold patch test result: {gold_patch_result['status']}"
                 )
 
-            results.append(
-                {
-                    "instance_id": instance_id,
-                    "scenario_id": scenario.id,
-                    "repo": instance.get("repo", ""),
-                    "version": instance.get("version", ""),
-                    "status": "success",
-                    "gold_patch_test": gold_patch_result,
-                }
-            )
+            # Write to JSONL file immediately after completion
+            record = {
+                "instance_id": instance_id,
+                "scenario_id": scenario.id,
+                "gold_patch_test_success": gold_patch_result.get("status") == "valid"
+                if gold_patch_result
+                else None,
+                "gold_patch_test_status": gold_patch_result.get("status")
+                if gold_patch_result
+                else None,
+                "gold_patch_test_score": gold_patch_result.get("score")
+                if gold_patch_result
+                else None,
+                "repo": instance.get("repo", ""),
+                "version": instance.get("version", ""),
+            }
+            await append_to_jsonl(record, lock=file_lock)
+            print(f"[{instance_id}] Saved to swegym_scenarios.jsonl")
+
+            return {
+                "instance_id": instance_id,
+                "scenario_id": scenario.id,
+                "repo": instance.get("repo", ""),
+                "version": instance.get("version", ""),
+                "status": "success",
+                "gold_patch_test": gold_patch_result,
+            }
 
         except Exception as e:
             print(f"[{instance_id}] ERROR: Failed to create scenario: {e}")
-            results.append(
-                {
-                    "instance_id": instance_id,
-                    "repo": instance.get("repo", ""),
-                    "version": instance.get("version", ""),
-                    "error": str(e),
-                    "status": "failed",
-                }
-            )
 
-        instance_count += 1
+            # Also log failed scenarios
+            failed_record = {
+                "instance_id": instance_id,
+                "scenario_id": None,
+                "gold_patch_test_success": None,
+                "gold_patch_test_status": "error",
+                "gold_patch_test_score": None,
+                "repo": instance.get("repo", ""),
+                "version": instance.get("version", ""),
+                "error": str(e),
+            }
+            await append_to_jsonl(failed_record, lock=file_lock)
+
+            return {
+                "instance_id": instance_id,
+                "repo": instance.get("repo", ""),
+                "version": instance.get("version", ""),
+                "error": str(e),
+                "status": "failed",
+            }
+
+
+async def create_swegym_benchmark(
+    client: AsyncRunloop,
+    num_instances: int,
+    benchmark_name: str = "SWE-Gym Benchmark",
+    start_from: int = 0,
+    test_gold_patch: bool = False,
+    max_concurrent: int = 5,
+):
+    """Create multiple SWE-Gym scenarios and a benchmark."""
+
+    print(
+        f"[INFO] Creating benchmark '{benchmark_name}' with {num_instances} scenarios..."
+    )
+    print(f"[INFO] Starting from instance index: {start_from}")
+    print(f"[INFO] Max concurrent operations: {max_concurrent}")
+
+    # Load SWE-Gym dataset
+    print("[INFO] Loading SWE-Gym dataset...")
+    dataset = load_dataset("SWE-Gym/SWE-Gym", split="train", streaming=True)
+
+    # Collect instances to process
+    instances_to_process = []
+    total_seen = 0
+
+    for instance in dataset:
+        # Skip instances before start_from
+        if total_seen < start_from:
+            total_seen += 1
+            continue
+
+        # Stop when we have enough instances
+        if len(instances_to_process) >= num_instances:
+            break
+
+        instances_to_process.append((instance, total_seen - start_from))
         total_seen += 1
+
+    # Create semaphore for concurrency control
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    # Create file lock for thread-safe JSONL writing
+    file_lock = asyncio.Lock()
+
+    # Create tasks for all instances
+    tasks = []
+    for instance, index in instances_to_process:
+        task = process_instance(
+            client,
+            instance,
+            index,
+            num_instances,
+            test_gold_patch,
+            semaphore,
+            file_lock,
+        )
+        tasks.append(task)
+
+    # Process all tasks concurrently
+    results = []
+
+    if tasks:
+        task_results = await asyncio.gather(*tasks)
+        results.extend(task_results)
+
+    # Extract scenario IDs from successful results
+    scenario_ids = [r["scenario_id"] for r in results if r.get("status") == "success"]
 
     if not scenario_ids:
         print("[ERROR] No scenarios created successfully. Cannot create benchmark.")
@@ -313,68 +376,223 @@ async def create_swegym_benchmark(
     return benchmark, results
 
 
+def get_scenario_status(output_dir: str = ".") -> dict:
+    """Get status of all created scenarios from saved JSON files.
+
+    Returns a dict keyed by instance_id with scenario details and gold patch results.
+    """
+    import glob
+
+    scenarios = {}
+
+    # Read individual scenario files
+    for scenario_file in glob.glob(os.path.join(output_dir, "scenario_*.json")):
+        with open(scenario_file, "r") as f:
+            data = json.load(f)
+            instance_id = data.get("instance_id")
+            if instance_id:
+                scenarios[instance_id] = {
+                    "scenario_id": data.get("scenario_id"),
+                    "snapshot_id": data.get("snapshot_id"),
+                    "repo": data.get("repo"),
+                    "version": data.get("version"),
+                    "base_commit": data.get("base_commit"),
+                    "file": scenario_file,
+                    "gold_patch_test": None,  # Will be filled from benchmark results
+                }
+
+    # Read benchmark result files to get gold patch test results
+    for benchmark_file in glob.glob(os.path.join(output_dir, "benchmark_*.json")):
+        with open(benchmark_file, "r") as f:
+            data = json.load(f)
+            for result in data.get("results", []):
+                instance_id = result.get("instance_id")
+                if instance_id and instance_id in scenarios:
+                    scenarios[instance_id]["gold_patch_test"] = result.get(
+                        "gold_patch_test"
+                    )
+                elif instance_id:
+                    # Scenario might exist in benchmark but not have individual file
+                    scenarios[instance_id] = {
+                        "scenario_id": result.get("scenario_id"),
+                        "repo": result.get("repo"),
+                        "version": result.get("version"),
+                        "status": result.get("status"),
+                        "gold_patch_test": result.get("gold_patch_test"),
+                        "from_benchmark": benchmark_file,
+                    }
+
+    return scenarios
+
+
+def save_scenario_summary(scenarios: dict, output_file: str = "swegym_scenarios.jsonl"):
+    """Save scenario summary to a JSONL file."""
+    with open(output_file, "w") as f:
+        for instance_id, info in sorted(scenarios.items()):
+            gold_test = info.get("gold_patch_test", {})
+            record = {
+                "instance_id": instance_id,
+                "scenario_id": info.get("scenario_id"),
+                "gold_patch_test_success": gold_test.get("status") == "valid"
+                if gold_test
+                else None,
+                "gold_patch_test_status": gold_test.get("status")
+                if gold_test
+                else None,
+                "gold_patch_test_score": gold_test.get("score") if gold_test else None,
+                "repo": info.get("repo"),
+                "version": info.get("version"),
+            }
+            f.write(json.dumps(record) + "\n")
+
+    print(f"[INFO] Scenario summary saved to: {output_file}")
+
+
+def print_scenario_summary(scenarios: dict):
+    """Print a summary of scenarios and their gold patch test results."""
+    if not scenarios:
+        print("[INFO] No scenarios found.")
+        return
+
+    print(f"\n[SUMMARY] Found {len(scenarios)} scenarios:")
+    print("-" * 80)
+
+    # Group by repo
+    by_repo = {}
+    for instance_id, info in scenarios.items():
+        repo = info.get("repo", "unknown")
+        if repo not in by_repo:
+            by_repo[repo] = []
+        by_repo[repo].append((instance_id, info))
+
+    # Print by repo
+    for repo in sorted(by_repo.keys()):
+        instances = by_repo[repo]
+        print(f"\n{repo} ({len(instances)} instances):")
+
+        for instance_id, info in sorted(instances):
+            scenario_id = info.get("scenario_id", "N/A")
+            gold_test = info.get("gold_patch_test")
+
+            if gold_test:
+                status = gold_test.get("status", "unknown")
+                score = gold_test.get("score", 0)
+                status_str = f"{status} (score: {score})"
+            else:
+                status_str = "not tested"
+
+            print(f"  {instance_id}: {scenario_id} - Gold patch: {status_str}")
+
+    # Summary statistics
+    print("\n" + "-" * 80)
+    total = len(scenarios)
+    tested = len([s for s in scenarios.values() if s.get("gold_patch_test")])
+    valid = len(
+        [
+            s
+            for s in scenarios.values()
+            if s.get("gold_patch_test", {}).get("status") == "valid"
+        ]
+    )
+    failed = len(
+        [
+            s
+            for s in scenarios.values()
+            if s.get("gold_patch_test", {}).get("status") in ["failed", "patch_failed"]
+        ]
+    )
+
+    print(f"Total scenarios: {total}")
+    print(f"Gold patch tested: {tested}")
+    if tested > 0:
+        print(f"  Valid: {valid} ({valid/tested*100:.1f}%)")
+        print(f"  Failed: {failed} ({failed/tested*100:.1f}%)")
+
+
 async def main():
     """Main entry point for creating SWE-Gym benchmarks."""
 
+    # Create argument parser
+    parser = argparse.ArgumentParser(
+        description="Create SWE-Gym benchmarks with multiple scenarios",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    # Create subparsers for different commands
+    subparsers = parser.add_subparsers(
+        dest="command", help="Command to run", required=True
+    )
+
+    # Create command
+    create_parser = subparsers.add_parser(
+        "create", help="Create new scenarios and benchmark"
+    )
+    create_parser.add_argument(
+        "num_instances", type=int, help="Number of instances to create scenarios for"
+    )
+    create_parser.add_argument(
+        "--name", type=str, default="swe-gym", help="Name for the benchmark"
+    )
+    create_parser.add_argument(
+        "--start-from",
+        type=int,
+        default=0,
+        help="Start from a specific index in the dataset",
+    )
+    create_parser.add_argument(
+        "--test-gold-patch",
+        action="store_true",
+        help="Test that gold patches work correctly by applying and scoring them",
+    )
+    create_parser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=5,
+        help="Maximum number of concurrent operations",
+    )
+
+    # Status command
+    status_parser = subparsers.add_parser(
+        "status", help="Show status of created scenarios"
+    )
+    status_parser.add_argument(
+        "--dir",
+        type=str,
+        default=".",
+        help="Directory to search for scenario and benchmark files",
+    )
+
     # Parse arguments
-    if len(sys.argv) < 2:
-        print("[ERROR] Please provide the number of instances to create")
-        print("Usage:")
-        print("  python create_swegym_benchmark.py <num_instances>")
-        print("Options:")
-        print("  --name <name>: Benchmark name (default: 'SWE-Gym Benchmark')")
-        print("  --reuse-snapshot: Reuse first snapshot for all scenarios")
-        print(
-            "  --start-from <index>: Start from a specific index in the dataset (default: 0)"
-        )
-        print("  --test-gold-patch: Test that gold patches work correctly")
+    args = parser.parse_args()
+
+    # Handle status command
+    if args.command == "status":
+        scenarios = get_scenario_status(args.dir)
+        print_scenario_summary(scenarios)
         return
 
-    # Parse command line arguments
-    num_instances = 0
-    benchmark_name = "SWE-Gym Benchmark"
-    reuse_snapshot = False
-    start_from = 0
-    test_gold_patch = False
+    # Handle create command
+    if args.command == "create":
+        # Validate arguments
+        if args.num_instances <= 0:
+            parser.error("Number of instances must be greater than 0")
 
-    i = 1
-    while i < len(sys.argv):
-        arg = sys.argv[i]
-        if arg == "--name":
-            i += 1
-            if i < len(sys.argv):
-                benchmark_name = sys.argv[i]
-        elif arg == "--reuse-snapshot":
-            reuse_snapshot = True
-        elif arg == "--test-gold-patch":
-            test_gold_patch = True
-        elif arg == "--start-from":
-            i += 1
-            if i < len(sys.argv):
-                start_from = int(sys.argv[i])
-        elif not arg.startswith("--"):
-            try:
-                num_instances = int(arg)
-            except ValueError:
-                print(f"[ERROR] Invalid number of instances: {arg}")
-                return
-        i += 1
+        if args.max_concurrent <= 0:
+            parser.error("Max concurrent must be greater than 0")
 
-    if num_instances <= 0:
-        print("[ERROR] Number of instances must be greater than 0")
-        return
+        if args.start_from < 0:
+            parser.error("Start from index must be non-negative")
 
     print(
-        f"[INFO] Will create scenarios for {num_instances} instances from the SWE-Gym dataset"
+        f"[INFO] Will create scenarios for {args.num_instances} instances from the SWE-Gym dataset"
     )
-    if start_from > 0:
-        print(f"[INFO] Starting from index {start_from}")
+    if args.start_from > 0:
+        print(f"[INFO] Starting from index {args.start_from}")
 
     # Check for API key
     api_key = os.getenv("RUNLOOP_API_KEY")
     if not api_key:
-        print("[ERROR] RUNLOOP_API_KEY environment variable not set")
-        return
+        parser.error("RUNLOOP_API_KEY environment variable not set")
 
     # Create client
     client = AsyncRunloop(bearer_token=api_key)
@@ -383,19 +601,19 @@ async def main():
         # Create benchmark
         benchmark, results = await create_swegym_benchmark(
             client,
-            num_instances,
-            benchmark_name,
-            reuse_snapshot,
-            start_from,
-            test_gold_patch,
+            args.num_instances,
+            args.name,
+            args.start_from,
+            args.test_gold_patch,
+            args.max_concurrent,
         )
 
         # Save results
         output = {
             "benchmark_id": benchmark.id if benchmark else None,
-            "benchmark_name": benchmark_name,
-            "requested_instances": num_instances,
-            "start_from": start_from,
+            "benchmark_name": args.name,
+            "requested_instances": args.num_instances,
+            "start_from": args.start_from,
             "successful_scenarios": len(
                 [r for r in results if r.get("status") == "success"]
             ),
@@ -414,7 +632,7 @@ async def main():
         if benchmark:
             print(f"Benchmark ID: {benchmark.id}")
             print(
-                f"Successfully created {len([r for r in results if r.get('status') == 'success'])}/{num_instances} scenarios"
+                f"Successfully created {len([r for r in results if r.get('status') == 'success'])}/{args.num_instances} scenarios"
             )
 
         # Print summary by repo
@@ -430,7 +648,7 @@ async def main():
                 print(f"  {repo}: {count}")
 
         # Print gold patch test results if applicable
-        if test_gold_patch:
+        if args.test_gold_patch:
             print("\nGold patch test results:")
             test_statuses = {}
             for r in results:
@@ -456,6 +674,13 @@ async def main():
             )
             if failed_count > 0:
                 print(f"\n[WARNING] {failed_count} gold patches failed validation!")
+
+        # Show detailed scenario summary
+        print("\n" + "=" * 80)
+        print("DETAILED SCENARIO STATUS")
+        print("=" * 80)
+        scenarios = get_scenario_status(".")
+        print_scenario_summary(scenarios)
 
     except Exception as e:
         print(f"\n[ERROR] Failed to create benchmark: {e}")
