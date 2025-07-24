@@ -491,14 +491,16 @@ def print_scenario_summary(scenarios: dict):
         [
             s
             for s in scenarios.values()
-            if s.get("gold_patch_test", {}).get("status") == "valid"
+            if s.get("gold_patch_test")
+            and s.get("gold_patch_test", {}).get("status") == "valid"
         ]
     )
     failed = len(
         [
             s
             for s in scenarios.values()
-            if s.get("gold_patch_test", {}).get("status") in ["failed", "patch_failed"]
+            if s.get("gold_patch_test")
+            and s.get("gold_patch_test", {}).get("status") in ["failed", "patch_failed"]
         ]
     )
 
