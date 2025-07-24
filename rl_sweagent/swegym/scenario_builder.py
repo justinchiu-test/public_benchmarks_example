@@ -154,7 +154,7 @@ exit 0
     result = await client.devboxes.execute_sync(
         id=devbox.id,
         command="chmod +x /tmp/base_setup.sh && bash /tmp/base_setup.sh",
-        timeout=600000,  # 10 minutes
+        timeout=600,  # 10 minutes
     )
 
     if result.exit_status != 0:
@@ -186,7 +186,7 @@ exit 0
     result = await client.devboxes.execute_sync(
         id=devbox.id,
         command='sudo /bin/bash -c "source ~/.bashrc && /root/setup_env.sh"',
-        timeout=600000,  # 10 minutes
+        timeout=600,  # 10 minutes
     )
 
     if result.exit_status != 0:
@@ -216,7 +216,7 @@ exit 0
     result = await client.devboxes.execute_sync(
         id=devbox.id,
         command="sudo /bin/bash /root/setup_repo.sh",
-        timeout=600000,  # 10 minutes
+        timeout=600,  # 10 minutes
     )
 
     if result.exit_status != 0:
@@ -268,7 +268,7 @@ exit 0
     all_passed = True
     for cmd, description in verification_commands:
         result = await client.devboxes.execute_sync(
-            id=devbox.id, command=cmd, timeout=30000
+            id=devbox.id, command=cmd, timeout=600
         )
         if result.exit_status != 0:
             print(
@@ -287,7 +287,7 @@ exit 0
     # Create snapshot
     print(f"[{instance_id}] Creating snapshot...")
     snapshot = await client.devboxes.snapshot_disk(
-        id=devbox.id, name=f"swegym-{instance_id}-snapshot", timeout=300
+        id=devbox.id, name=f"swegym-{instance_id}-snapshot", timeout=600
     )
     snapshot_id = snapshot.id
     print(f"[{instance_id}] Snapshot created with ID: {snapshot_id}")
