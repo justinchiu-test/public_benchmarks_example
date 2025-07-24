@@ -70,11 +70,8 @@ async def create_swegym_scenario(
         json.dump(test_spec_data, f, indent=2)
     print(f"[{instance_id}] Test spec saved to {test_spec_file}")
 
-    # We'll detect architecture after creating the devbox
-    arch = "aarch64"  # Default, will be updated later
-
     # Generate base setup script (translated from _DOCKERFILE_BASE)
-    base_setup_script = f"""#!/bin/bash
+    base_setup_script = """#!/bin/bash
 set -euxo pipefail
 
 # Clean Python environment variables that might conflict
@@ -215,7 +212,7 @@ exit 0
     # Update base setup script with correct architecture
     # Map uname -m output to conda architecture names
     conda_arch = "aarch64" if arch == "aarch64" else "x86_64"
-    base_setup_script = base_setup_script.replace("{arch}", conda_arch)
+    base_setup_script = base_setup_script.format(arch=conda_arch)
 
     # Stage 1: Base setup (system packages + conda)
     print(f"[{instance_id}] Stage 1: Running base setup...")
