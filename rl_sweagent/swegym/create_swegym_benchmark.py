@@ -114,9 +114,11 @@ async def test_scenario_with_gold_patch(
                 )
                 print(f"[{instance_id}] Scoring output:")
                 print("-" * 80)
-                print(scoring_output[:2000])  # First 2000 chars
+                print(f"[{instance_id}] {scoring_output[:2000]}")  # First 2000 chars
                 if len(scoring_output) > 2000:
-                    print(f"... (truncated, total length: {len(scoring_output)} chars)")
+                    print(
+                        f"[{instance_id}] ... (truncated, total length: {len(scoring_output)} chars)"
+                    )
                 print("-" * 80)
 
         # Complete the run to clean up
@@ -185,7 +187,7 @@ async def create_swegym_benchmark(
 
         instance_id = instance.get("instance_id", f"unknown_{instance_count}")
         print(
-            f"\n[INFO] Creating scenario {instance_count + 1}/{num_instances}: {instance_id}"
+            f"\n[{instance_id}] Creating scenario {instance_count + 1}/{num_instances}"
         )
 
         try:
@@ -208,17 +210,19 @@ async def create_swegym_benchmark(
                     details = json.load(f)
                     snapshot_id = details.get("snapshot_id")
                     print(
-                        f"[INFO] Will reuse snapshot {snapshot_id} for remaining scenarios"
+                        f"[{instance_id}] Will reuse snapshot {snapshot_id} for remaining scenarios"
                     )
 
             # Test gold patch if requested
             gold_patch_result = None
             if test_gold_patch and instance.get("patch"):
-                print(f"[INFO] Testing gold patch for {instance_id}...")
+                print(f"[{instance_id}] Testing gold patch...")
                 gold_patch_result = await test_scenario_with_gold_patch(
                     client, scenario.id, instance_id
                 )
-                print(f"[INFO] Gold patch test result: {gold_patch_result['status']}")
+                print(
+                    f"[{instance_id}] Gold patch test result: {gold_patch_result['status']}"
+                )
 
             results.append(
                 {
@@ -232,7 +236,7 @@ async def create_swegym_benchmark(
             )
 
         except Exception as e:
-            print(f"[ERROR] Failed to create scenario for {instance_id}: {e}")
+            print(f"[{instance_id}] ERROR: Failed to create scenario: {e}")
             results.append(
                 {
                     "instance_id": instance_id,
