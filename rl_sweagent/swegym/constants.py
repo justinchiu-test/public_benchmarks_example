@@ -1618,6 +1618,7 @@ USE_X86 = {
     "sympy__sympy-14248",
     "sympy__sympy-15222",
     "sympy__sympy-19201",
+    "bokeh__bokeh-13721",
 }
 
 

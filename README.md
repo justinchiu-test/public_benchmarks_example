@@ -76,29 +76,65 @@ SWE-Gym is available at: https://huggingface.co/datasets/SWE-Gym/SWE-Gym
 
 ### Creating Benchmarks
 
-1. Create scenarios from SWE-Gym instances:
+The benchmark creation tool samples instances from each repository to ensure diversity across different codebases. Use `0` to get all available instances from each repository. Benchmark names are always formatted as `{base-name}-{repos}-{instances}`.
+
+1. Create benchmark with ALL instances from ALL repositories:
 ```bash
-uv run rl_sweagent/swegym/create_swegym_benchmark.py create 10 --name my-benchmark
+uv run rl_sweagent/swegym/create_swegym_benchmark.py create 0
 ```
 
-This will create 10 scenarios from the SWE-Gym dataset.
+This creates a benchmark named `swegym-allrepos-allinstances`.
 
-2. Create scenarios with gold patch testing:
+2. Create benchmark with up to 2 instances per repository:
 ```bash
-uv run rl_sweagent/swegym/create_swegym_benchmark.py create 10 --name my-benchmark --test-gold-patch
+uv run rl_sweagent/swegym/create_swegym_benchmark.py create 2
 ```
 
-This validates that the gold patches actually fix the failing tests.
+This creates `swegym-allrepos-2instances`.
 
-3. Create scenarios starting from a specific index:
+3. Create benchmark with all instances from 20 repositories:
 ```bash
-uv run rl_sweagent/swegym/create_swegym_benchmark.py create 10 --name my-benchmark --start-from 100
+uv run rl_sweagent/swegym/create_swegym_benchmark.py create 0 --max-repos 20
 ```
 
-4. Control concurrency:
+This creates `swegym-20repos-allinstances`.
+
+4. Create benchmark with specific limits:
 ```bash
-uv run rl_sweagent/swegym/create_swegym_benchmark.py create 50 --name my-benchmark --max-concurrent 10
+uv run rl_sweagent/swegym/create_swegym_benchmark.py create 3 --max-repos 20
 ```
+
+This creates `swegym-20repos-3instances` with up to 3 instances from each of 20 repositories.
+
+5. Create benchmark with custom base name and gold patch testing:
+```bash
+uv run rl_sweagent/swegym/create_swegym_benchmark.py create 2 --name mytest --test-gold-patch
+```
+
+This creates `mytest-allrepos-2instances` and validates that the gold patches actually fix the failing tests.
+
+6. Create benchmark starting from a specific index in the dataset:
+```bash
+uv run rl_sweagent/swegym/create_swegym_benchmark.py create 2 --start-from 1000
+```
+
+7. Control concurrency:
+```bash
+uv run rl_sweagent/swegym/create_swegym_benchmark.py create 5 --max-repos 10 --max-concurrent 10
+```
+
+8. Full example with all options:
+```bash
+uv run rl_sweagent/swegym/create_swegym_benchmark.py create 3 \
+    --max-repos 30 \
+    --test-gold-patch \
+    --max-concurrent 8 \
+    --start-from 0
+```
+
+This creates `swegym-30repos-3instances` with up to 3 instances from each of 30 repositories.
+
+Note: Some repositories may have fewer instances than requested, so the actual total may be less than repos × instances.
 
 ### Checking Status
 
@@ -141,18 +177,23 @@ logs/
 ### Example Workflow
 
 ```bash
-# Create 20 scenarios with gold patch validation
-uv run rl_sweagent/swegym/create_swegym_benchmark.py create 20 --name swegym-test --test-gold-patch
+# Create benchmark with max 3 instances per repository from 25 repos with gold patch validation
+uv run rl_sweagent/swegym/create_swegym_benchmark.py create 3 --max-repos 25 --test-gold-patch
+
+# The benchmark will be auto-named: swegym-25repos-3instances
 
 # Check status
 uv run rl_sweagent/swegym/create_swegym_benchmark.py status
 
 # Examine logs for a specific instance
-cat logs/swegym-test/getmoto__moto-7365/scenario_creation_logs.json
-cat logs/swegym-test/getmoto__moto-7365/gold_patch_test_logs.json
+cat logs/swegym-25repos-3instances/getmoto__moto-7365/scenario_creation_logs.json
+cat logs/swegym-25repos-3instances/getmoto__moto-7365/gold_patch_test_logs.json
+
+# View repository distribution
+cat logs/swegym-25repos-3instances/scenarios.jsonl | jq -s 'group_by(.repo) | map({repo: .[0].repo, count: length})'
 
 # Run the created benchmark
-uv run run_public_benchmark.py --benchmark-name swegym-test
+uv run run_public_benchmark.py --benchmark-name swegym-25repos-3instances
 ```
 
 ## Notes

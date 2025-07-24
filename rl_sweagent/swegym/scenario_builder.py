@@ -45,6 +45,30 @@ async def create_swegym_scenario(
     # Track all command executions for debugging
     command_logs = []
 
+    # Save test spec details
+    log_dir = os.path.join("logs", benchmark_name, instance_id)
+    os.makedirs(log_dir, exist_ok=True)
+
+    test_spec_file = os.path.join(log_dir, "test_spec.json")
+    test_spec_data = {
+        "instance_id": test_spec.instance_id,
+        "repo": test_spec.repo,
+        "version": test_spec.version,
+        "arch": test_spec.arch,
+        "FAIL_TO_PASS": test_spec.FAIL_TO_PASS,
+        "PASS_TO_PASS": test_spec.PASS_TO_PASS,
+        "repo_script_list": test_spec.repo_script_list,
+        "eval_script_list": test_spec.eval_script_list,
+        "env_script_list": test_spec.env_script_list,
+        "setup_env_script": test_spec.setup_env_script,
+        "install_repo_script": test_spec.install_repo_script,
+        "eval_script": test_spec.eval_script,
+    }
+
+    with open(test_spec_file, "w") as f:
+        json.dump(test_spec_data, f, indent=2)
+    print(f"[{instance_id}] Test spec saved to {test_spec_file}")
+
     # We'll detect architecture after creating the devbox
     arch = "aarch64"  # Default, will be updated later
 

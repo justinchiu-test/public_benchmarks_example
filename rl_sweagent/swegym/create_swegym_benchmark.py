@@ -270,7 +270,7 @@ async def process_instance(
     client: AsyncRunloop,
     instance: dict,
     instance_index: int,
-    num_instances: int,
+    total_instances: int,
     test_gold_patch: bool,
     semaphore: asyncio.Semaphore,
     file_lock: asyncio.Lock,
@@ -280,7 +280,7 @@ async def process_instance(
     async with semaphore:
         instance_id = instance.get("instance_id", f"unknown_{instance_index}")
         print(
-            f"\n[{instance_id}] Creating scenario {instance_index + 1}/{num_instances}"
+            f"\n[{instance_id}] Creating scenario {instance_index + 1}/{total_instances}"
         )
 
         try:
@@ -358,27 +358,47 @@ async def process_instance(
 
 async def create_swegym_benchmark(
     client: AsyncRunloop,
-    num_instances: int,
+    max_instances_per_repo: int,
     benchmark_name: str = "SWE-Gym Benchmark",
     start_from: int = 0,
     test_gold_patch: bool = False,
     max_concurrent: int = 5,
+    max_repos: int = None,
 ):
-    """Create multiple SWE-Gym scenarios and a benchmark."""
+    """Create SWE-Gym scenarios by sampling up to K instances from each repository.
 
-    print(
-        f"[INFO] Creating benchmark '{benchmark_name}' with {num_instances} scenarios..."
-    )
+    Args:
+        client: AsyncRunloop client
+        max_instances_per_repo: Maximum number of instances to sample from each repository
+        benchmark_name: Name for the benchmark
+        start_from: Starting index in the dataset
+        test_gold_patch: Whether to test gold patches
+        max_concurrent: Maximum concurrent operations
+        max_repos: Maximum number of repositories to include (None for all)
+    """
+
+    if max_instances_per_repo == 0:
+        print(
+            f"[INFO] Creating benchmark '{benchmark_name}' with ALL instances from each repository..."
+        )
+    else:
+        print(
+            f"[INFO] Creating benchmark '{benchmark_name}' with up to {max_instances_per_repo} instances per repository..."
+        )
     print(f"[INFO] Starting from instance index: {start_from}")
     print(f"[INFO] Max concurrent operations: {max_concurrent}")
+    if max_repos:
+        print(f"[INFO] Maximum repositories: {max_repos}")
 
     # Load SWE-Gym dataset
     print("[INFO] Loading SWE-Gym dataset...")
     dataset = load_dataset("SWE-Gym/SWE-Gym", split="train", streaming=True)
 
-    # Collect instances to process
-    instances_to_process = []
+    # Sample K instances from each repository
+    instances_by_repo = {}
     total_seen = 0
+    instances_to_process = []
+    repos_completed = 0
 
     for instance in dataset:
         # Skip instances before start_from
@@ -386,12 +406,75 @@ async def create_swegym_benchmark(
             total_seen += 1
             continue
 
-        # Stop when we have enough instances
-        if len(instances_to_process) >= num_instances:
-            break
+        repo = instance.get("repo", "unknown")
 
-        instances_to_process.append((instance, total_seen - start_from))
+        # Initialize repo counter if needed
+        if repo not in instances_by_repo:
+            instances_by_repo[repo] = []
+
+        # Check if we've reached the max number of repos
+        if max_repos and len(instances_by_repo) > max_repos:
+            # Only continue processing if this is a repo we've already started
+            if repo not in instances_by_repo or (
+                max_instances_per_repo > 0
+                and len(instances_by_repo[repo]) >= max_instances_per_repo
+            ):
+                total_seen += 1
+                continue
+
+        # Add instance if we haven't reached the limit for this repo (0 means no limit)
+        if (
+            max_instances_per_repo == 0
+            or len(instances_by_repo[repo]) < max_instances_per_repo
+        ):
+            instances_by_repo[repo].append((instance, len(instances_to_process)))
+            instances_to_process.append((instance, len(instances_to_process)))
+
+            # Check if this repo is now complete (only if we have a limit)
+            if (
+                max_instances_per_repo > 0
+                and len(instances_by_repo[repo]) == max_instances_per_repo
+            ):
+                repos_completed += 1
+
+                # Stop if we've completed max_repos
+                if max_repos and repos_completed >= max_repos:
+                    break
+
         total_seen += 1
+
+    # Print repository distribution
+    print("\n[INFO] Repository distribution:")
+    repo_counts = {}
+    for repo, instances in instances_by_repo.items():
+        repo_counts[repo] = len(instances)
+
+    # Sort by count (descending) then by repo name
+    sorted_repos = sorted(repo_counts.items(), key=lambda x: (-x[1], x[0]))
+
+    for repo, count in sorted_repos[:20]:
+        print(f"  {repo}: {count} instances")
+    if len(repo_counts) > 20:
+        print(f"  ... and {len(repo_counts) - 20} more repositories")
+
+    print(f"\n[INFO] Total repositories: {len(repo_counts)}")
+    print(f"[INFO] Total instances selected: {len(instances_to_process)}")
+
+    # Show repos with fewer instances than requested (only if we had a limit)
+    if max_instances_per_repo > 0:
+        incomplete_repos = [
+            (repo, count)
+            for repo, count in repo_counts.items()
+            if count < max_instances_per_repo
+        ]
+        if incomplete_repos:
+            print(
+                f"\n[WARNING] {len(incomplete_repos)} repositories had fewer than {max_instances_per_repo} instances:"
+            )
+            for repo, count in sorted(incomplete_repos[:10], key=lambda x: x[1]):
+                print(f"  {repo}: {count} instances")
+            if len(incomplete_repos) > 10:
+                print(f"  ... and {len(incomplete_repos) - 10} more repositories")
 
     # Create semaphore for concurrency control
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -401,12 +484,13 @@ async def create_swegym_benchmark(
 
     # Create tasks for all instances
     tasks = []
+    total_instances = len(instances_to_process)
     for instance, index in instances_to_process:
         task = process_instance(
             client,
             instance,
             index,
-            num_instances,
+            total_instances,
             test_gold_patch,
             semaphore,
             file_lock,
@@ -641,10 +725,15 @@ async def main():
         "create", help="Create new scenarios and benchmark"
     )
     create_parser.add_argument(
-        "num_instances", type=int, help="Number of instances to create scenarios for"
+        "max_instances_per_repo",
+        type=int,
+        help="Maximum number of instances to sample from each repository (0 for all)",
     )
     create_parser.add_argument(
-        "--name", type=str, default="swe-gym", help="Name for the benchmark"
+        "--name",
+        type=str,
+        default="swegym",
+        help="Base name for the benchmark (will append -{repos}-{instances})",
     )
     create_parser.add_argument(
         "--start-from",
@@ -662,6 +751,12 @@ async def main():
         type=int,
         default=5,
         help="Maximum number of concurrent operations",
+    )
+    create_parser.add_argument(
+        "--max-repos",
+        type=int,
+        default=None,
+        help="Maximum number of repositories to include (default: all repositories)",
     )
 
     # Status command
@@ -687,8 +782,10 @@ async def main():
     # Handle create command
     if args.command == "create":
         # Validate arguments
-        if args.num_instances <= 0:
-            parser.error("Number of instances must be greater than 0")
+        if args.max_instances_per_repo < 0:
+            parser.error(
+                "Max instances per repository must be non-negative (0 for all)"
+            )
 
         if args.max_concurrent <= 0:
             parser.error("Max concurrent must be greater than 0")
@@ -696,9 +793,28 @@ async def main():
         if args.start_from < 0:
             parser.error("Start from index must be non-negative")
 
-    print(
-        f"[INFO] Will create scenarios for {args.num_instances} instances from the SWE-Gym dataset"
-    )
+        if args.max_repos is not None and args.max_repos <= 0:
+            parser.error("Max repos must be greater than 0")
+
+        # Append repo and instance info to the name
+        repos_str = f"{args.max_repos}repos" if args.max_repos else "allrepos"
+        instances_str = (
+            "allinstances"
+            if args.max_instances_per_repo == 0
+            else f"{args.max_instances_per_repo}instances"
+        )
+        full_name = f"{args.name}-{repos_str}-{instances_str}"
+        args.name = full_name
+        print(f"[INFO] Full benchmark name: {args.name}")
+
+    if args.max_instances_per_repo == 0:
+        print("[INFO] Will create scenarios with ALL instances from each repository")
+    else:
+        print(
+            f"[INFO] Will create scenarios with up to {args.max_instances_per_repo} instances per repository"
+        )
+    if args.max_repos:
+        print(f"[INFO] Limiting to {args.max_repos} repositories")
     if args.start_from > 0:
         print(f"[INFO] Starting from index {args.start_from}")
 
@@ -714,18 +830,20 @@ async def main():
         # Create benchmark
         benchmark, results = await create_swegym_benchmark(
             client,
-            args.num_instances,
+            args.max_instances_per_repo,
             args.name,
             args.start_from,
             args.test_gold_patch,
             args.max_concurrent,
+            args.max_repos,
         )
 
         # Save results
         output = {
             "benchmark_id": benchmark.id if benchmark else None,
             "benchmark_name": args.name,
-            "requested_instances": args.num_instances,
+            "max_instances_per_repo": args.max_instances_per_repo,
+            "max_repos": args.max_repos,
             "start_from": args.start_from,
             "successful_scenarios": len(
                 [r for r in results if r.get("status") == "success"]
@@ -733,6 +851,7 @@ async def main():
             "failed_scenarios": len(
                 [r for r in results if r.get("status") == "failed"]
             ),
+            "total_instances": len(results),
             "results": results,
         }
 
@@ -751,7 +870,7 @@ async def main():
         if benchmark:
             print(f"Benchmark ID: {benchmark.id}")
             print(
-                f"Successfully created {len([r for r in results if r.get('status') == 'success'])}/{args.num_instances} scenarios"
+                f"Successfully created {len([r for r in results if r.get('status') == 'success'])}/{len(results)} scenarios"
             )
 
         # Print summary by repo
