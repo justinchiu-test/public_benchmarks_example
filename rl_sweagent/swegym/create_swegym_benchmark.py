@@ -123,7 +123,7 @@ async def test_scenario_with_gold_patch(
                 print("-" * 80)
 
         # Complete the run to clean up
-        # await client.scenarios.runs.complete(id=scenario_run.id)
+        await client.scenarios.runs.complete(id=scenario_run.id)
 
         # Determine status based on score
         if not patch_applied:

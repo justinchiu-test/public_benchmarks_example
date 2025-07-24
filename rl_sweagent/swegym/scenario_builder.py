@@ -293,7 +293,7 @@ exit 0
     print(f"[{instance_id}] Snapshot created with ID: {snapshot_id}")
 
     # Shutdown devbox
-    # await client.devboxes.shutdown(id=devbox.id)
+    await client.devboxes.shutdown(id=devbox.id)
     # print(f"[{instance_id}] Devbox shut down")
 
     # Create scenario
