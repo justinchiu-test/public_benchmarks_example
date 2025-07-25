@@ -337,6 +337,31 @@ exit 0
 
     print(f"[{instance_id}] SUCCESS: Repository setup completed!")
 
+    # Fix permissions on /testbed to ensure patches can be applied
+    print(f"[{instance_id}] Fixing file permissions...")
+    perm_result = await client.devboxes.execute_sync(
+        id=devbox.id,
+        command="sudo chmod -R 755 /testbed && sudo chown -R $(whoami):$(whoami) /testbed && sudo chmod -R u+w /testbed",
+        timeout=300,
+    )
+    if perm_result.exit_status != 0:
+        print(
+            f"[{instance_id}] WARNING: Failed to fix permissions: {perm_result.stderr}"
+        )
+    else:
+        print(f"[{instance_id}] Permissions fixed successfully")
+
+    # Log permission fix
+    command_logs.append(
+        {
+            "stage": "fix_permissions",
+            "command": "sudo chmod -R 755 /testbed && sudo chown -R $(whoami):$(whoami) /testbed && sudo chmod -R u+w /testbed",
+            "exit_status": perm_result.exit_status,
+            "stdout": perm_result.stdout if perm_result.stdout else "",
+            "stderr": perm_result.stderr if perm_result.stderr else "",
+        }
+    )
+
     # Comprehensive verification
     print(f"[{instance_id}] Running comprehensive verification...")
 
@@ -376,6 +401,11 @@ exit 0
         ("stat -c '%U:%G %a' /testbed", "Repository permissions"),
         # Show testbed directory structure
         ("ls -la /testbed | head -10", "Testbed directory"),
+        # Verify write permissions
+        (
+            "touch /testbed/test_write_permission && rm -f /testbed/test_write_permission && echo 'Write test passed'",
+            "Write permissions",
+        ),
     ]
 
     all_passed = True

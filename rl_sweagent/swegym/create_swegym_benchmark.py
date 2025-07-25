@@ -102,17 +102,44 @@ async def test_scenario_with_gold_patch(
             print(f"[{instance_id}] ERROR Stdout: {pre_patch_check.stdout}")
             print(f"[{instance_id}] ERROR Stderr: {pre_patch_check.stderr}")
 
+        # Fix permissions on /testbed before applying patch
+        print(f"[{instance_id}] Fixing file permissions before patch application...")
+        perm_fix_result = await client.devboxes.execute_sync(
+            id=scenario_run.devbox_id,
+            command="sudo chmod -R 755 /testbed && sudo chown -R $(whoami):$(whoami) /testbed && sudo chmod -R u+w /testbed",
+            timeout=300,
+        )
+
+        # Log permission fix
+        command_logs.append(
+            {
+                "stage": "fix_permissions_before_patch",
+                "command": "sudo chmod -R 755 /testbed && sudo chown -R $(whoami):$(whoami) /testbed && sudo chmod -R u+w /testbed",
+                "exit_status": perm_fix_result.exit_status,
+                "stdout": perm_fix_result.stdout if perm_fix_result.stdout else "",
+                "stderr": perm_fix_result.stderr if perm_fix_result.stderr else "",
+            }
+        )
+
+        if perm_fix_result.exit_status != 0:
+            print(
+                f"[{instance_id}] WARNING: Failed to fix permissions: {perm_fix_result.stderr}"
+            )
+        else:
+            print(f"[{instance_id}] Permissions fixed successfully")
+
         # Apply patch (like run_gold_patch.py)
+        # Also ensure /tmp is writable for patch temporary files
         patch_result = await client.devboxes.execute_sync(
             id=scenario_run.devbox_id,
-            command=f"cd /testbed && patch {patch_apply_flags} < /home/user/ref.patch",
+            command=f"sudo chmod 1777 /tmp && cd /testbed && patch {patch_apply_flags} < /home/user/ref.patch",
         )
 
         # Log command execution
         command_logs.append(
             {
                 "stage": "apply_patch",
-                "command": f"cd /testbed && patch {patch_apply_flags} < /home/user/ref.patch",
+                "command": f"sudo chmod 1777 /tmp && cd /testbed && patch {patch_apply_flags} < /home/user/ref.patch",
                 "exit_status": patch_result.exit_status,
                 "stdout": patch_result.stdout if patch_result.stdout else "",
                 "stderr": patch_result.stderr if patch_result.stderr else "",

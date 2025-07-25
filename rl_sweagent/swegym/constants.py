@@ -2597,6 +2597,7 @@ SPECS_PYDANTIC = {
             "which python",
             "python --version",
         ],
+        # "install": 'export PATH="$HOME/.local/bin:$PATH"; cd /testbed && pdm lock --update-reuse --group :all 2>/dev/null || pdm lock --update-reuse || true; cd /testbed && pdm sync --clean -v || pdm install -v || make install;',
         "install": 'export PATH="$HOME/.local/bin:$PATH"; pdm add pre-commit; make install;',
         "test_cmd": TEST_PYDANTIC,
     }
