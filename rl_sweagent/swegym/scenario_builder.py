@@ -127,6 +127,9 @@ sudo chmod 777 /testbed
     env_setup_script = f"""#!/bin/bash
 set -euxo pipefail
 
+# from env dockerfile, automatically start conda env
+echo "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed" > /root/.bashrc
+
 # Source bashrc to get conda
 source ~/.bashrc
 
