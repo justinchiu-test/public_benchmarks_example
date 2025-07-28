@@ -391,6 +391,7 @@ async def create_swegym_benchmark(
     test_gold_patch: bool = False,
     max_concurrent: int = 5,
     max_repos: int = None,
+    repo_filter: str = None,
 ):
     """Create SWE-Gym scenarios by sampling up to K instances from each repository.
 
@@ -402,6 +403,7 @@ async def create_swegym_benchmark(
         test_gold_patch: Whether to test gold patches
         max_concurrent: Maximum concurrent operations
         max_repos: Maximum number of repositories to include (None for all)
+        repo_filter: If specified, only process instances from this repository
     """
 
     if max_instances_per_repo == 0:
@@ -414,7 +416,9 @@ async def create_swegym_benchmark(
         )
     print(f"[INFO] Starting from instance index: {start_from}")
     print(f"[INFO] Max concurrent operations: {max_concurrent}")
-    if max_repos:
+    if repo_filter:
+        print(f"[INFO] Filtering to repository: {repo_filter}")
+    elif max_repos:
         print(f"[INFO] Maximum repositories: {max_repos}")
 
     # Load SWE-Gym dataset
@@ -434,6 +438,11 @@ async def create_swegym_benchmark(
             continue
 
         repo = instance.get("repo", "unknown")
+
+        # Skip if --repo filter is specified and this isn't the target repo
+        if repo_filter and repo != repo_filter:
+            total_seen += 1
+            continue
 
         # Initialize repo counter if needed
         if repo not in instances_by_repo:
@@ -785,6 +794,12 @@ async def main():
         default=None,
         help="Maximum number of repositories to include (default: all repositories)",
     )
+    create_parser.add_argument(
+        "--repo",
+        type=str,
+        default=None,
+        help="Only process instances from this specific repository (e.g., 'django/django')",
+    )
 
     # Status command
     status_parser = subparsers.add_parser(
@@ -824,7 +839,12 @@ async def main():
             parser.error("Max repos must be greater than 0")
 
         # Append repo and instance info to the name
-        repos_str = f"{args.max_repos}repos" if args.max_repos else "allrepos"
+        if args.repo:
+            # If filtering by specific repo, use repo name in benchmark name
+            repo_clean = args.repo.replace("/", "__")
+            repos_str = repo_clean
+        else:
+            repos_str = f"{args.max_repos}repos" if args.max_repos else "allrepos"
         instances_str = (
             "allinstances"
             if args.max_instances_per_repo == 0
@@ -840,7 +860,9 @@ async def main():
         print(
             f"[INFO] Will create scenarios with up to {args.max_instances_per_repo} instances per repository"
         )
-    if args.max_repos:
+    if args.repo:
+        print(f"[INFO] Filtering to repository: {args.repo}")
+    elif args.max_repos:
         print(f"[INFO] Limiting to {args.max_repos} repositories")
     if args.start_from > 0:
         print(f"[INFO] Starting from index {args.start_from}")
@@ -863,6 +885,7 @@ async def main():
             args.test_gold_patch,
             args.max_concurrent,
             args.max_repos,
+            args.repo,
         )
 
         # Save results
