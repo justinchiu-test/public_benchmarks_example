@@ -302,6 +302,7 @@ async def process_instance(
     semaphore: asyncio.Semaphore,
     file_lock: asyncio.Lock,
     benchmark_name: str = "swegym",
+    debug_mode: bool = False,
 ):
     """Process a single instance to create a scenario."""
     async with semaphore:
@@ -316,7 +317,7 @@ async def process_instance(
 
             # Create scenario with its own snapshot
             scenario = await create_swegym_scenario(
-                client, instance, test_spec, benchmark_name
+                client, instance, test_spec, benchmark_name, debug_mode=debug_mode
             )
 
             # Test gold patch if requested
@@ -361,6 +362,19 @@ async def process_instance(
         except Exception as e:
             print(f"[{instance_id}] ERROR: Failed to create scenario: {e}")
 
+            # Check if we have a devbox ID and are in debug mode
+            if debug_mode and hasattr(e, "devbox_id"):
+                print(
+                    f"\n[{instance_id}] DEBUG MODE: Devbox kept running for debugging"
+                )
+                print(f"[{instance_id}] Devbox ID: {e.devbox_id}")
+                print(
+                    f"[{instance_id}] To connect: uv run rl devbox ssh --id {e.devbox_id}"
+                )
+                print(
+                    f"[{instance_id}] To delete: uv run rl devbox shutdown --id {e.devbox_id}\n"
+                )
+
             # Also log failed scenarios
             failed_record = {
                 "instance_id": instance_id,
@@ -371,6 +385,7 @@ async def process_instance(
                 "repo": instance.get("repo", ""),
                 "version": instance.get("version", ""),
                 "error": str(e),
+                "devbox_id": getattr(e, "devbox_id", None) if debug_mode else None,
             }
             await append_to_jsonl(failed_record, benchmark_name, lock=file_lock)
 
@@ -380,6 +395,7 @@ async def process_instance(
                 "version": instance.get("version", ""),
                 "error": str(e),
                 "status": "failed",
+                "devbox_id": getattr(e, "devbox_id", None) if debug_mode else None,
             }
 
 
@@ -392,6 +408,7 @@ async def create_swegym_benchmark(
     max_concurrent: int = 5,
     max_repos: int = None,
     repo_filter: str = None,
+    debug_mode: bool = False,
 ):
     """Create SWE-Gym scenarios by sampling up to K instances from each repository.
 
@@ -404,6 +421,7 @@ async def create_swegym_benchmark(
         max_concurrent: Maximum concurrent operations
         max_repos: Maximum number of repositories to include (None for all)
         repo_filter: If specified, only process instances from this repository
+        debug_mode: If True, keeps failed devboxes running for debugging
     """
 
     if max_instances_per_repo == 0:
@@ -420,6 +438,8 @@ async def create_swegym_benchmark(
         print(f"[INFO] Filtering to repository: {repo_filter}")
     elif max_repos:
         print(f"[INFO] Maximum repositories: {max_repos}")
+    if debug_mode:
+        print("[INFO] DEBUG MODE ENABLED - Failed devboxes will be kept running")
 
     # Load SWE-Gym dataset
     print("[INFO] Loading SWE-Gym dataset...")
@@ -531,6 +551,7 @@ async def create_swegym_benchmark(
             semaphore,
             file_lock,
             benchmark_name,
+            debug_mode,
         )
         tasks.append(task)
 
@@ -616,21 +637,43 @@ def get_scenario_status(output_dir: str = ".") -> dict:
 
     scenarios = {}
 
-    # Read individual scenario files
-    for scenario_file in glob.glob(os.path.join(output_dir, "scenario_*.json")):
-        with open(scenario_file, "r") as f:
-            data = json.load(f)
-            instance_id = data.get("instance_id")
-            if instance_id:
-                scenarios[instance_id] = {
-                    "scenario_id": data.get("scenario_id"),
-                    "snapshot_id": data.get("snapshot_id"),
-                    "repo": data.get("repo"),
-                    "version": data.get("version"),
-                    "base_commit": data.get("base_commit"),
-                    "file": scenario_file,
-                    "gold_patch_test": None,  # Will be filled from benchmark results
-                }
+    # First try to read from scenarios.jsonl files in log directories
+    for jsonl_file in glob.glob(os.path.join(output_dir, "logs/*/scenarios.jsonl")):
+        with open(jsonl_file, "r") as f:
+            for line in f:
+                if line.strip():
+                    data = json.loads(line)
+                    instance_id = data.get("instance_id")
+                    if instance_id:
+                        scenarios[instance_id] = {
+                            "scenario_id": data.get("scenario_id"),
+                            "repo": data.get("repo"),
+                            "version": data.get("version"),
+                            "gold_patch_test": {
+                                "status": data.get("gold_patch_test_status"),
+                                "score": data.get("gold_patch_test_score"),
+                            }
+                            if data.get("gold_patch_test_status")
+                            else None,
+                            "error": data.get("error"),
+                        }
+
+    # Fall back to individual scenario files if no JSONL found
+    if not scenarios:
+        for scenario_file in glob.glob(os.path.join(output_dir, "scenario_*.json")):
+            with open(scenario_file, "r") as f:
+                data = json.load(f)
+                instance_id = data.get("instance_id")
+                if instance_id:
+                    scenarios[instance_id] = {
+                        "scenario_id": data.get("scenario_id"),
+                        "snapshot_id": data.get("snapshot_id"),
+                        "repo": data.get("repo"),
+                        "version": data.get("version"),
+                        "base_commit": data.get("base_commit"),
+                        "file": scenario_file,
+                        "gold_patch_test": None,  # Will be filled from benchmark results
+                    }
 
     # Read benchmark result files to get gold patch test results
     for benchmark_file in glob.glob(os.path.join(output_dir, "benchmark_*.json")):
@@ -704,11 +747,21 @@ def print_scenario_summary(scenarios: dict):
         for instance_id, info in sorted(instances):
             scenario_id = info.get("scenario_id", "N/A")
             gold_test = info.get("gold_patch_test")
+            error = info.get("error")
 
-            if gold_test:
+            if error:
+                status_str = (
+                    f"ERROR: {error[:50]}..."
+                    if len(str(error)) > 50
+                    else f"ERROR: {error}"
+                )
+            elif gold_test:
                 status = gold_test.get("status", "unknown")
                 score = gold_test.get("score", 0)
-                status_str = f"{status} (score: {score})"
+                if status == "valid":
+                    status_str = f"✅ {status} (score: {score})"
+                else:
+                    status_str = f"❌ {status} (score: {score})"
             else:
                 status_str = "not tested"
 
@@ -717,6 +770,10 @@ def print_scenario_summary(scenarios: dict):
     # Summary statistics
     print("\n" + "-" * 80)
     total = len(scenarios)
+    errors = len([s for s in scenarios.values() if s.get("error")])
+    created = len(
+        [s for s in scenarios.values() if s.get("scenario_id") and not s.get("error")]
+    )
     tested = len([s for s in scenarios.values() if s.get("gold_patch_test")])
     valid = len(
         [
@@ -731,15 +788,24 @@ def print_scenario_summary(scenarios: dict):
             s
             for s in scenarios.values()
             if s.get("gold_patch_test")
-            and s.get("gold_patch_test", {}).get("status") in ["failed", "patch_failed"]
+            and s.get("gold_patch_test", {}).get("status")
+            in ["failed", "patch_failed", "error"]
         ]
     )
 
-    print(f"Total scenarios: {total}")
+    print(f"Total instances: {total}")
+    if errors > 0:
+        print(f"Failed to create scenario: {errors} ({errors/total*100:.1f}%)")
+    print(f"Scenarios created: {created} ({created/total*100:.1f}%)")
     print(f"Gold patch tested: {tested}")
     if tested > 0:
         print(f"  Valid: {valid} ({valid/tested*100:.1f}%)")
         print(f"  Failed: {failed} ({failed/tested*100:.1f}%)")
+
+    # Show success rate
+    if total > 0:
+        overall_success = valid / total * 100
+        print(f"\nOverall success rate: {valid}/{total} ({overall_success:.1f}%)")
 
 
 async def main():
@@ -799,6 +865,11 @@ async def main():
         type=str,
         default=None,
         help="Only process instances from this specific repository (e.g., 'django/django')",
+    )
+    create_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Keep devboxes running on failure for debugging (does not clean up failed devboxes)",
     )
 
     # Status command
@@ -886,6 +957,7 @@ async def main():
             args.max_concurrent,
             args.max_repos,
             args.repo,
+            args.debug,
         )
 
         # Save results

@@ -29,7 +29,11 @@ async def save_command_logs(
 
 
 async def create_swegym_scenario(
-    client: AsyncRunloop, instance: dict, test_spec, benchmark_name: str = "swegym"
+    client: AsyncRunloop,
+    instance: dict,
+    test_spec,
+    benchmark_name: str = "swegym",
+    debug_mode: bool = False,
 ):
     """Create a Runloop scenario from a SWE-Gym instance
 
@@ -38,6 +42,7 @@ async def create_swegym_scenario(
         instance: SWE-Gym instance dictionary
         test_spec: TestSpec object created from the instance
         benchmark_name: Name of the benchmark for organizing logs
+        debug_mode: If True, keeps failed devboxes running for debugging
     """
 
     instance_id = instance["instance_id"]
@@ -127,14 +132,11 @@ sudo chmod 777 /testbed
     env_setup_script = f"""#!/bin/bash
 set -euxo pipefail
 
-# from env dockerfile, automatically start conda env
-echo "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed" > /root/.bashrc
-
-# Source bashrc to get conda
-source ~/.bashrc
-
-# Run the test_spec environment setup
+# Run the test_spec environment setup (which will create the conda environment)
 {test_spec.setup_env_script}
+
+# Now that the environment is created, set up bashrc for future sessions
+echo "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate testbed" > /root/.bashrc
 """
 
     # Generate repository setup script (will be written to /root/setup_repo.sh)
@@ -248,7 +250,9 @@ exit 0
             print(f"[{instance_id}] ERROR stderr: {result.stderr[-1000:]}")
         # Save logs before raising exception
         await save_command_logs(instance_id, command_logs, benchmark_name)
-        raise Exception("Base setup failed")
+        error = Exception("Base setup failed")
+        error.devbox_id = devbox.id
+        raise error
 
     print(f"[{instance_id}] SUCCESS: Base setup completed!")
 
@@ -293,7 +297,9 @@ exit 0
             print(f"[{instance_id}] ERROR stderr: {result.stderr[-1000:]}")
         # Save logs before raising exception
         await save_command_logs(instance_id, command_logs, benchmark_name)
-        raise Exception("Environment setup failed")
+        error = Exception("Environment setup failed")
+        error.devbox_id = devbox.id
+        raise error
 
     print(f"[{instance_id}] SUCCESS: Environment setup completed!")
 
@@ -336,7 +342,9 @@ exit 0
             print(f"[{instance_id}] ERROR stderr: {result.stderr[-1000:]}")
         # Save logs before raising exception
         await save_command_logs(instance_id, command_logs, benchmark_name)
-        raise Exception("Repository setup failed")
+        error = Exception("Repository setup failed")
+        error.devbox_id = devbox.id
+        raise error
 
     print(f"[{instance_id}] SUCCESS: Repository setup completed!")
 
