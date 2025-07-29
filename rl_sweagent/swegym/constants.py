@@ -2165,6 +2165,24 @@ for k in [
         'python -m pip install --upgrade pip wheel GitPython; python -m pip install "cython<3.0.0" && python -m pip install --no-build-isolation pyyaml==5.4.1; python -m pip install git+https://github.com/iterative/mock-ssh-server.git || true; python -m pip install "numpy<=1.20"; python -m pip install "pytest<8"; python -m pip install -r tests/requirements.txt || true; python -m pip install -r test-requirements.txt || true; python -m pip install -e ".[tests,dev,all_remotes,all,testing]";'
     )
 
+# For versions with pyarrow==0.16.0, we need to install pyarrow without build isolation
+# after numpy is already installed
+for k in ["0.89", "0.91", "0.92", "0.93"]:
+    # SPECS_DVC[k]["install"] = (
+    #     'python -m pip install --upgrade pip wheel GitPython; python -m pip install "cython<3.0.0" && python -m pip install --no-build-isolation pyyaml==5.4.1; python -m pip install git+https://github.com/iterative/mock-ssh-server.git || true; python -m pip install "numpy<=1.20" "pyarrow==0.16.0"; python -m pip install "pytest<8"; python -m pip install -r tests/requirements.txt || true; python -m pip install -r test-requirements.txt || true; python -m pip install -e ".[tests,dev,all_remotes,all,testing]";'
+    # )
+    # Use conda only for numpy and pyarrow to avoid build issues
+    SPECS_DVC[k]["install"] = (
+        "python -m pip install --upgrade pip wheel GitPython; "
+        'python -m pip install "cython<3.0.0" && python -m pip install --no-build-isolation pyyaml==5.4.1; '
+        "python -m pip install git+https://github.com/iterative/mock-ssh-server.git || true; "
+        'conda install -y -c conda-forge numpy=1.20 pyarrow=0.16.0 || python -m pip install "numpy<=1.20" "pyarrow==0.16.0"; '
+        'python -m pip install "pytest<8"; '
+        "python -m pip install -r tests/requirements.txt || true; "
+        "python -m pip install -r test-requirements.txt || true; "
+        'python -m pip install -e ".[tests,dev,all_remotes,all,testing]";'
+    )
+
 for k in [
     "1.0",
     "1.1",

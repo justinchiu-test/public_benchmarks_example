@@ -409,6 +409,7 @@ async def create_swegym_benchmark(
     max_repos: int = None,
     repo_filter: str = None,
     debug_mode: bool = False,
+    instance_ids: list = None,
 ):
     """Create SWE-Gym scenarios by sampling up to K instances from each repository.
 
@@ -458,9 +459,15 @@ async def create_swegym_benchmark(
             continue
 
         repo = instance.get("repo", "unknown")
+        instance_id = instance.get("instance_id", "")
 
         # Skip if --repo filter is specified and this isn't the target repo
         if repo_filter and repo != repo_filter:
+            total_seen += 1
+            continue
+
+        # Skip if --instance-ids filter is specified and this isn't one of the target instances
+        if instance_ids and instance_id not in instance_ids:
             total_seen += 1
             continue
 
@@ -871,6 +878,12 @@ async def main():
         action="store_true",
         help="Keep devboxes running on failure for debugging (does not clean up failed devboxes)",
     )
+    create_parser.add_argument(
+        "--instance-ids",
+        type=str,
+        default=None,
+        help="Comma-separated list of specific instance IDs to run (e.g., 'iterative__dvc-3472,iterative__dvc-3493')",
+    )
 
     # Status command
     status_parser = subparsers.add_parser(
@@ -947,6 +960,12 @@ async def main():
     client = AsyncRunloop(bearer_token=api_key)
 
     try:
+        # Process instance IDs if provided
+        instance_ids_list = None
+        if args.instance_ids:
+            instance_ids_list = [id.strip() for id in args.instance_ids.split(",")]
+            print(f"[INFO] Filtering to specific instances: {instance_ids_list}")
+
         # Create benchmark
         benchmark, results = await create_swegym_benchmark(
             client,
@@ -958,6 +977,7 @@ async def main():
             args.max_repos,
             args.repo,
             args.debug,
+            instance_ids_list,
         )
 
         # Save results
