@@ -1933,7 +1933,7 @@ SPECS_DVC = {
             # fix moto dev version missing issue
             "[ -f setup.py ] && sed -E -i 's/moto==([0-9]+\.[0-9]+\.[0-9]+)\.dev[0-9]+/moto==\\1/' setup.py",
             # fix pyarrow version issue
-            "[ -f setup.py ] && sed -i 's/pyarrow==0.15.1/pyarrow==0.16/' setup.py"
+            "[ -f setup.py ] && sed -i 's/pyarrow==0.15.1/pyarrow==0.16/' setup.py",
             # fix boto version conflict
             "[ -f setup.py ] && sed -i 's/boto3==1.9.115/boto3==1.9.201/' setup.py",
         ],
@@ -2159,9 +2159,11 @@ for k in [
     "0.93",
 ]:
     SPECS_DVC[k]["python"] = "3.8"
-    SPECS_DVC[k]["install"] += ' python -m pip install "numpy<=1.20";'
+    # numpy<=1.20
     # pytest 8 breaks pytest-lazy-fixture
-    SPECS_DVC[k]["install"] += ' python -m pip install "pytest<8";'
+    SPECS_DVC[k]["install"] = (
+        'python -m pip install --upgrade pip wheel GitPython; python -m pip install "cython<3.0.0" && python -m pip install --no-build-isolation pyyaml==5.4.1; python -m pip install git+https://github.com/iterative/mock-ssh-server.git || true; python -m pip install "numpy<=1.20"; python -m pip install "pytest<8"; python -m pip install -r tests/requirements.txt || true; python -m pip install -r test-requirements.txt || true; python -m pip install -e ".[tests,dev,all_remotes,all,testing]";'
+    )
 
 for k in [
     "1.0",
@@ -2225,9 +2227,10 @@ for k in [
     "3.3",
 ]:
     SPECS_DVC[k]["python"] = "3.9"
-    SPECS_DVC[k]["install"] += ' python -m pip install "numpy<=1.20";'
-    # pytest 8 breaks pytest-lazy-fixture
-    SPECS_DVC[k]["install"] += ' python -m pip install "pytest<8";'
+    SPECS_DVC[k]["install"] = (
+        'python -m pip install --upgrade pip wheel GitPython; python -m pip install "cython<3.0.0" && python -m pip install --no-build-isolation pyyaml==5.4.1; python -m pip install git+https://github.com/iterative/mock-ssh-server.git || true; python -m pip install "numpy<=1.20"; python -m pip install "pytest<8"; python -m pip install -r tests/requirements.txt || true; python -m pip install -r test-requirements.txt || true; python -m pip install -e ".[tests,dev,all_remotes,all,testing]";'
+    )
+
 MAP_REPO_VERSION_TO_SPECS.update({"iterative/dvc": SPECS_DVC})
 
 # bokeh
