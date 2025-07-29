@@ -2597,7 +2597,13 @@ SPECS_PYDANTIC = {
             "which python",
             "python --version",
         ],
-        "install": 'export PATH="$HOME/.local/bin:$PATH"; pdm add pre-commit; rm -f pdm.lock && pdm lock --group :all && make install;',
+        # "install": 'export PATH="$HOME/.local/bin:$PATH"; pdm add pre-commit; rm -f pdm.lock && pdm lock --group :all && make install;',
+        # fix for pydantic-extra-types dependency that is hard-coded to main
+        "install": (
+            'export PATH="$HOME/.local/bin:$PATH"; '
+            "sed -i 's|pydantic-extra-types @ git+https://github.com/pydantic/pydantic-extra-types.git@main|pydantic-extra-types|g' pyproject.toml; "
+            "pdm add pre-commit; rm -f pdm.lock && pdm lock --group :all && make install;"
+        ),
         # "install": 'export PATH="$HOME/.local/bin:$PATH"; pdm add pre-commit; make install;',
         "test_cmd": TEST_PYDANTIC,
     }
@@ -2691,15 +2697,6 @@ for k in [
     ]
     SPECS_PYDANTIC[k]["python"] = "3.7"
 
-# Fix pydantic-extra-types dependency for versions below 2.5
-for k in ["2.0", "2.01", "2.02", "2.03", "2.04"]:
-    if k in SPECS_PYDANTIC:
-        # Replace git dependency with PyPI version (without versioning)
-        SPECS_PYDANTIC[k]["install"] = (
-            'export PATH="$HOME/.local/bin:$PATH"; '
-            "sed -i 's|pydantic-extra-types @ git+https://github.com/pydantic/pydantic-extra-types.git@main|pydantic-extra-types|g' pyproject.toml; "
-            "pdm add pre-commit; rm -f pdm.lock && pdm lock --group :all && make install;"
-        )
 
 MAP_REPO_VERSION_TO_SPECS.update({"pydantic/pydantic": SPECS_PYDANTIC})
 
