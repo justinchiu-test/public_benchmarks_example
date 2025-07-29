@@ -177,7 +177,11 @@ exit 0
     print(f"[{instance_id}] Creating new devbox...")
 
     # Determine architecture based on USE_X86 list
-    launch_params = {}
+    launch_params = {
+        "resource_size_request": "CUSTOM_SIZE",
+        "custom_cpu_cores": 4,
+        "custom_gb_memory": 32,
+    }
     if instance_id in USE_X86:
         launch_params["architecture"] = "x86_64"
         print(f"[{instance_id}] Using x86_64 architecture (instance in USE_X86 list)")
