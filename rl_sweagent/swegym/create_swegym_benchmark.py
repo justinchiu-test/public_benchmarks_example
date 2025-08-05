@@ -10,7 +10,8 @@ import aiofiles
 from datasets import load_dataset
 from runloop_api_client import AsyncRunloop
 
-from rl_sweagent.swegym.scenario_builder import create_swegym_scenario
+# from rl_sweagent.swegym.scenario_builder import create_swegym_scenario
+from rl_sweagent.swegym.scenario_builder_blueprint import create_swegym_scenario
 from rl_sweagent.swegym.test_spec import make_test_spec
 
 
@@ -1055,12 +1056,14 @@ async def main():
             if failed_count > 0:
                 print(f"\n[WARNING] {failed_count} gold patches failed validation!")
 
+        """
         # Show detailed scenario summary
         print("\n" + "=" * 80)
         print("DETAILED SCENARIO STATUS")
         print("=" * 80)
         scenarios = get_scenario_status(".")
         print_scenario_summary(scenarios)
+        """
 
     except Exception as e:
         print(f"\n[ERROR] Failed to create benchmark: {e}")
