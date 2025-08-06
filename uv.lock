@@ -95,7 +95,7 @@ wheels = [
 
 [[package]]
 name = "anthropic"
-version = "0.60.0"
+version = "0.61.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -106,9 +106,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4e/03/3334921dc54ed822b3dd993ae72d823a7402588521bbba3e024b3333a1fd/anthropic-0.60.0.tar.gz", hash = "sha256:a22ba187c6f4fd5afecb2fc913b960feccf72bc0d25c1b7ce0345e87caede577", size = 425983, upload-time = "2025-07-28T19:53:47.685Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7a/9a/b384758ef93b8f931a523efc8782f7191b175714b3952ff11002899f638b/anthropic-0.61.0.tar.gz", hash = "sha256:af4b3b8f3bc4626cca6af2d412e301974da1747179341ad9e271bdf5cbd2f008", size = 426606, upload-time = "2025-08-05T16:29:37.958Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/da/bb/d84f287fb1c217b30c328af987cf8bbe3897edf0518dcc5fa39412f794ec/anthropic-0.60.0-py3-none-any.whl", hash = "sha256:65ad1f088a960217aaf82ba91ff743d6c89e9d811c6d64275b9a7c59ee9ac3c6", size = 293116, upload-time = "2025-07-28T19:53:45.944Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/07/c7907eee22f5c27a53118dd2576267052ae01f52811dbb06a2848012639e/anthropic-0.61.0-py3-none-any.whl", hash = "sha256:798c8e6cc61e6315143c3f5847d2f220c45f1e69f433436872a237413ca58803", size = 294935, upload-time = "2025-08-05T16:29:36.379Z" },
 ]
 
 [[package]]
@@ -620,7 +620,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.98.0"
+version = "1.99.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -632,9 +632,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d8/9d/52eadb15c92802711d6b6cf00df3a6d0d18b588f4c5ba5ff210c6419fc03/openai-1.98.0.tar.gz", hash = "sha256:3ee0fcc50ae95267fd22bd1ad095ba5402098f3df2162592e68109999f685427", size = 496695, upload-time = "2025-07-30T12:48:03.701Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/72/3f49a3d0452019febd70fcf258743e01dc1ca43a95cc97a4b5b773d2d0a5/openai-1.99.0.tar.gz", hash = "sha256:7b985693da4dc9783394b785212bb67a65352cb6b867b1756b0e5e8321b4aba9", size = 497020, upload-time = "2025-08-05T17:02:02.834Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/fe/f64631075b3d63a613c0d8ab761d5941631a470f6fa87eaaee1aa2b4ec0c/openai-1.98.0-py3-none-any.whl", hash = "sha256:b99b794ef92196829120e2df37647722104772d2a74d08305df9ced5f26eae34", size = 767713, upload-time = "2025-07-30T12:48:01.264Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/18/f3fc5b111d0bc51111beb2b049571974df952a5f7f466126823124b77368/openai-1.99.0-py3-none-any.whl", hash = "sha256:9d762c299eba9b0b3a55c3905e8457520e73a7601a258b763aa046475fac2b98", size = 767800, upload-time = "2025-08-05T17:02:00.274Z" },
 ]
 
 [[package]]
@@ -925,14 +925,10 @@ wheels = [
 
 [[package]]
 name = "rl-cli"
-version = "0.2.13"
-source = { registry = "https://pypi.org/simple" }
+version = "0.0.1"
+source = { git = "https://github.com/runloopai/rl-cli#54b22916a91c65c586b8605152ab2fbddf2a96fe" }
 dependencies = [
     { name = "runloop-api-client" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1b/fd/e13d5754e9bd09014d8f291fc712e277df4d1a9681954ea95615a0ffe6b9/rl_cli-0.2.13.tar.gz", hash = "sha256:1a0453a0e5c9f3647790cd5c5a8c34d1473970a5db3dffaa336e1d7e8548b025", size = 32805, upload-time = "2025-06-23T18:06:02.084Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/43/324e9e2cfcf0beb326dbcb2e013d8670b2cc7551b14c53b8e23d316f8cbd/rl_cli-0.2.13-py3-none-any.whl", hash = "sha256:8b9e2505cca329013c9f04c53d79c911efbe4e462598c6c616294add44a7891e", size = 12628, upload-time = "2025-06-23T18:06:00.812Z" },
 ]
 
 [[package]]
@@ -960,9 +956,9 @@ requires-dist = [
     { name = "openai", specifier = ">=1.82.1" },
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "pyright", specifier = ">=1.1.402" },
-    { name = "rl-cli", specifier = ">=0.2.13" },
+    { name = "rl-cli", git = "https://github.com/runloopai/rl-cli" },
     { name = "ruff", specifier = ">=0.11.11" },
-    { name = "runloop-api-client", specifier = ">=0.40.0" },
+    { name = "runloop-api-client", specifier = ">=0.50.0" },
     { name = "tqdm", specifier = ">=4.66.0" },
 ]
 
@@ -993,7 +989,7 @@ wheels = [
 
 [[package]]
 name = "runloop-api-client"
-version = "0.40.0"
+version = "0.53.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1003,9 +999,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d7/46/935094a1c194a52ff056ada8300e5c7e150d2dfac1595accbca20dd49722/runloop_api_client-0.40.0.tar.gz", hash = "sha256:009a71b8f3a3afbfe4c9f323600aa727357cb03522a808d82165730528bfd7c0", size = 203659, upload-time = "2025-06-10T18:27:46.441Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4d/d4/cfde878554f91fd2b9182858c16803e6709f416945d3c287aeaf6a95139a/runloop_api_client-0.53.0.tar.gz", hash = "sha256:124a4a2be5a4f3044952e1cf0f4a8dcfc7fb5a1901d8ff62ef74b6463e68e991", size = 319600, upload-time = "2025-07-30T19:56:27.484Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/a1/1163f1c42c38909c4f7fc766bc1f278261b7bced315a35f4e9670c253b92/runloop_api_client-0.40.0-py3-none-any.whl", hash = "sha256:44b6a2a6f2825d0ae76cae031dad40563f37121b800c6d0441f2dae981e61b31", size = 220153, upload-time = "2025-06-10T18:27:44.672Z" },
+    { url = "https://files.pythonhosted.org/packages/09/d5/ecc8ee99b109e26b045208f5e62cb10fb36c1d4ccfc534662670d712fcf4/runloop_api_client-0.53.0-py3-none-any.whl", hash = "sha256:5f6e13d6e7e96ca7cadc0b963da9e269043c9c787441f934213022aa12ea6f82", size = 232527, upload-time = "2025-07-30T19:56:25.74Z" },
 ]
 
 [[package]]
@@ -1079,16 +1075,16 @@ wheels = [
 
 [[package]]
 name = "virtualenv"
-version = "20.33.0"
+version = "20.33.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "distlib" },
     { name = "filelock" },
     { name = "platformdirs" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/db/2e/8a70dcbe8bf15213a08f9b0325ede04faca5d362922ae0d62ef0fa4b069d/virtualenv-20.33.0.tar.gz", hash = "sha256:47e0c0d2ef1801fce721708ccdf2a28b9403fa2307c3268aebd03225976f61d2", size = 6082069, upload-time = "2025-08-03T08:09:19.014Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8b/60/4f20960df6c7b363a18a55ab034c8f2bcd5d9770d1f94f9370ec104c1855/virtualenv-20.33.1.tar.gz", hash = "sha256:1b44478d9e261b3fb8baa5e74a0ca3bc0e05f21aa36167bf9cbf850e542765b8", size = 6082160, upload-time = "2025-08-05T16:10:55.605Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/43/87/b22cf40cdf7e2b2bf83f38a94d2c90c5ad6c304896e5a12d0c08a602eb59/virtualenv-20.33.0-py3-none-any.whl", hash = "sha256:106b6baa8ab1b526d5a9b71165c85c456fbd49b16976c88e2bc9352ee3bc5d3f", size = 6060205, upload-time = "2025-08-03T08:09:16.674Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/ff/ded57ac5ff40a09e6e198550bab075d780941e0b0f83cbeabd087c59383a/virtualenv-20.33.1-py3-none-any.whl", hash = "sha256:07c19bc66c11acab6a5958b815cbcee30891cd1c2ccf53785a28651a0d8d8a67", size = 6060362, upload-time = "2025-08-05T16:10:52.81Z" },
 ]
 
 [[package]]

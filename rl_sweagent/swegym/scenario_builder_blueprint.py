@@ -5,6 +5,7 @@ import os
 
 import aiofiles
 from runloop_api_client import AsyncRunloop
+from runloop_api_client.lib.polling import PollingConfig
 from runloop_api_client.types import (
     InputContextParam,
     ScenarioEnvironment,
@@ -32,7 +33,6 @@ async def create_swegym_scenario(
     instance: dict,
     test_spec,
     benchmark_name: str = "swegym",
-    debug_mode: bool = False,
 ):
     """Create a Runloop scenario from a SWE-Gym instance
 
@@ -41,7 +41,6 @@ async def create_swegym_scenario(
         instance: SWE-Gym instance dictionary
         test_spec: TestSpec object created from the instance
         benchmark_name: Name of the benchmark for organizing logs
-        debug_mode: If True, keeps failed devboxes running for debugging
     """
 
     instance_id = instance["instance_id"]
@@ -101,15 +100,20 @@ async def create_swegym_scenario(
     """
 
     # for permissions...
-    # launch_params["user_parameters"] = dict(username="root", uid=0)
+    launch_params["user_parameters"] = dict(username="root", uid=0)
+
+    # clear blueprints with same name
+    blueprint_results = await client.blueprints.list(name=f"SWE-Gym-{instance_id}")
+    for blueprint in blueprint_results.blueprints:
+        await client.blueprints.delete(blueprint.id)
+        print(f"Deleted old blueprint: {blueprint.id}")
 
     # Create blueprint
     blueprint = await client.blueprints.create_and_await_build_complete(
         name=f"SWE-Gym-{instance_id}",
         launch_parameters=launch_params,
         dockerfile=f"""FROM {image_name}""",
-        # Add nonroot user (from Dockerfile)
-        # sudo adduser --disabled-password --gecos 'dog' nonroot || true""",
+        polling_config=PollingConfig(interval_seconds=5, max_attempts=120),
     )
     print(f"[{instance_id}] Blueprint created with ID: {blueprint.id}")
 
@@ -243,8 +247,9 @@ exit 0
     scenario_config = {
         "name": f"swegym-{instance_id}",
         "input_context": InputContextParam(
-            problem_statement=instance["problem_statement"],
-            additional_context=format_additional_context(instance, test_spec),
+            problem_statement="dummy",
+            # problem_statement=instance["problem_statement"],
+            # additional_context=format_additional_context(instance, test_spec),
         ),
         "scoring_contract": ScoringContractParam(
             scoring_function_parameters=[

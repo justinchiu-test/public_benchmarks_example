@@ -9,6 +9,7 @@ from typing import Dict
 import aiofiles
 from datasets import load_dataset
 from runloop_api_client import AsyncRunloop
+from runloop_api_client.lib.polling import PollingConfig
 
 # from rl_sweagent.swegym.scenario_builder import create_swegym_scenario
 from rl_sweagent.swegym.scenario_builder_blueprint import create_swegym_scenario
@@ -20,6 +21,7 @@ async def test_scenario_with_gold_patch(
     scenario_id: str,
     instance_id: str = None,
     benchmark_name: str = "swegym",
+    debug: bool = False,
 ) -> Dict:
     """Test that a scenario behaves correctly with the gold patch stored in reference_output."""
 
@@ -186,7 +188,13 @@ async def test_scenario_with_gold_patch(
                 print(f"[{instance_id}] ERROR Stderr: {post_patch_check.stderr}")
 
         # Score the scenario with the patch applied
-        result = await client.scenarios.runs.score_and_await(id=scenario_run.id)
+        result = await client.scenarios.runs.score_and_await(
+            id=scenario_run.id,
+            polling_config=PollingConfig(
+                interval_seconds=10,
+                timeout_seconds=1200,
+            ),
+        )
 
         # Get the score and output
         score = 0.0
@@ -208,7 +216,8 @@ async def test_scenario_with_gold_patch(
                 print("-" * 80)
 
         # Complete the run to clean up
-        await client.scenarios.runs.complete(id=scenario_run.id)
+        if not debug:
+            await client.scenarios.runs.complete(id=scenario_run.id)
 
         # Determine status based on score
         if not patch_applied:
@@ -303,7 +312,7 @@ async def process_instance(
     semaphore: asyncio.Semaphore,
     file_lock: asyncio.Lock,
     benchmark_name: str = "swegym",
-    debug_mode: bool = False,
+    debug: bool = False,
 ):
     """Process a single instance to create a scenario."""
     async with semaphore:
@@ -318,7 +327,10 @@ async def process_instance(
 
             # Create scenario with its own snapshot
             scenario = await create_swegym_scenario(
-                client, instance, test_spec, benchmark_name, debug_mode=debug_mode
+                client,
+                instance,
+                test_spec,
+                benchmark_name,
             )
 
             # Test gold patch if requested
@@ -326,7 +338,11 @@ async def process_instance(
             if test_gold_patch and instance.get("patch"):
                 print(f"[{instance_id}] Testing gold patch...")
                 gold_patch_result = await test_scenario_with_gold_patch(
-                    client, scenario.id, instance_id, benchmark_name
+                    client,
+                    scenario.id,
+                    instance_id,
+                    benchmark_name,
+                    debug=debug,
                 )
                 print(
                     f"[{instance_id}] Gold patch test result: {gold_patch_result['status']}"
@@ -363,19 +379,6 @@ async def process_instance(
         except Exception as e:
             print(f"[{instance_id}] ERROR: Failed to create scenario: {e}")
 
-            # Check if we have a devbox ID and are in debug mode
-            if debug_mode and hasattr(e, "devbox_id"):
-                print(
-                    f"\n[{instance_id}] DEBUG MODE: Devbox kept running for debugging"
-                )
-                print(f"[{instance_id}] Devbox ID: {e.devbox_id}")
-                print(
-                    f"[{instance_id}] To connect: uv run rl devbox ssh --id {e.devbox_id}"
-                )
-                print(
-                    f"[{instance_id}] To delete: uv run rl devbox shutdown --id {e.devbox_id}\n"
-                )
-
             # Also log failed scenarios
             failed_record = {
                 "instance_id": instance_id,
@@ -386,7 +389,7 @@ async def process_instance(
                 "repo": instance.get("repo", ""),
                 "version": instance.get("version", ""),
                 "error": str(e),
-                "devbox_id": getattr(e, "devbox_id", None) if debug_mode else None,
+                "devbox_id": getattr(e, "devbox_id", None) if debug else None,
             }
             await append_to_jsonl(failed_record, benchmark_name, lock=file_lock)
 
@@ -396,7 +399,7 @@ async def process_instance(
                 "version": instance.get("version", ""),
                 "error": str(e),
                 "status": "failed",
-                "devbox_id": getattr(e, "devbox_id", None) if debug_mode else None,
+                "devbox_id": getattr(e, "devbox_id", None) if debug else None,
             }
 
 
@@ -409,7 +412,7 @@ async def create_swegym_benchmark(
     max_concurrent: int = 5,
     max_repos: int = None,
     repo_filter: str = None,
-    debug_mode: bool = False,
+    debug: bool = False,
     instance_ids: list = None,
 ):
     """Create SWE-Gym scenarios by sampling up to K instances from each repository.
@@ -423,7 +426,7 @@ async def create_swegym_benchmark(
         max_concurrent: Maximum concurrent operations
         max_repos: Maximum number of repositories to include (None for all)
         repo_filter: If specified, only process instances from this repository
-        debug_mode: If True, keeps failed devboxes running for debugging
+        debug: If True, keeps failed devboxes running for debugging
     """
 
     if max_instances_per_repo == 0:
@@ -440,7 +443,7 @@ async def create_swegym_benchmark(
         print(f"[INFO] Filtering to repository: {repo_filter}")
     elif max_repos:
         print(f"[INFO] Maximum repositories: {max_repos}")
-    if debug_mode:
+    if debug:
         print("[INFO] DEBUG MODE ENABLED - Failed devboxes will be kept running")
 
     # Load SWE-Gym dataset
@@ -559,7 +562,7 @@ async def create_swegym_benchmark(
             semaphore,
             file_lock,
             benchmark_name,
-            debug_mode,
+            debug,
         )
         tasks.append(task)
 
