@@ -89,15 +89,6 @@ async def create_swegym_scenario(
     # i think all of xingyao's images are x86 now?
     launch_params["architecture"] = "x86_64"
     print(f"[{instance_id}] Using x86_64 architecture (xingyao default)")
-    """
-    if instance_id in USE_X86:
-        launch_params["architecture"] = "x86_64"
-        print(f"[{instance_id}] Using x86_64 architecture (instance in USE_X86 list)")
-    else:
-        # Default to arm64 if not in USE_X86 list
-        launch_params["architecture"] = "arm64"
-        print(f"[{instance_id}] Using arm64 architecture (default)")
-    """
 
     # for permissions...
     launch_params["user_parameters"] = dict(username="root", uid=0)
@@ -108,7 +99,6 @@ async def create_swegym_scenario(
         await client.blueprints.delete(blueprint.id)
         print(f"Deleted old blueprint: {blueprint.id}")
 
-    # Create blueprint
     blueprint = await client.blueprints.create_and_await_build_complete(
         name=f"SWE-Gym-{instance_id}",
         launch_parameters=launch_params,
@@ -121,7 +111,6 @@ async def create_swegym_scenario(
     for blueprint in blueprint_results.blueprints:
         print(blueprint)
 
-    # do we need to wait until blueprint gets provisioned?
     devbox = await client.devboxes.create_and_await_running(
         blueprint_name=f"SWE-Gym-{instance_id}"
     )
@@ -215,7 +204,8 @@ async def create_swegym_scenario(
 
     # Shutdown devbox
     await client.devboxes.shutdown(id=devbox.id)
-    # print(f"[{instance_id}] Devbox shut down")
+    print(f"[{instance_id}] Devbox shut down")
+
     # Generate scoring script (evaluation)
     scoring_script = f"""#!/bin/bash
 # Don't use -e flag to match eval script behavior

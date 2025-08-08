@@ -15,6 +15,7 @@ dependencies = [
     "pre-commit>=4.2.0",
     "rl-cli",
     "aiofiles>=24.1.0",
+    "matplotlib>=3.10.5",
 ]
 
 [project.scripts]

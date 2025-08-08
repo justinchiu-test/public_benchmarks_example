@@ -4,12 +4,13 @@ import argparse
 import asyncio
 import json
 import os
-from typing import Dict
+from typing import Dict, Optional
 
 import aiofiles
 from datasets import load_dataset
 from runloop_api_client import AsyncRunloop
 from runloop_api_client.lib.polling import PollingConfig
+from runloop_api_client.types import BenchmarkView
 
 # from rl_sweagent.swegym.scenario_builder import create_swegym_scenario
 from rl_sweagent.swegym.scenario_builder_blueprint import create_swegym_scenario
@@ -286,6 +287,75 @@ async def test_scenario_with_gold_patch(
             print(f"[{instance_id}] Gold patch test error logs saved to {filename}")
 
         return {"status": "error", "error": str(e)}
+
+
+async def create_or_update_benchmark(
+    client: AsyncRunloop,
+    benchmark_name: str,
+    scenario_ids: list[str],
+) -> Optional[BenchmarkView]:
+    """Create or update a benchmark with the given scenario IDs.
+
+    Args:
+        client: AsyncRunloop client
+        benchmark_name: Name for the benchmark
+        scenario_ids: List of scenario IDs to include in the benchmark
+
+    Returns:
+        The created or updated benchmark object, or None if failed
+    """
+    if not scenario_ids:
+        print("[ERROR] No scenarios provided. Cannot create benchmark.")
+        return None
+
+    print(
+        f"\n[INFO] Creating/updating benchmark '{benchmark_name}' with {len(scenario_ids)} scenarios..."
+    )
+
+    # Try to find existing benchmark with this name
+    existing_benchmark = None
+    try:
+        benchmarks_response = await client.benchmarks.list()
+        # The response might have a .benchmarks attribute or be a list directly
+        benchmarks = (
+            benchmarks_response.benchmarks
+            if hasattr(benchmarks_response, "benchmarks")
+            else benchmarks_response
+        )
+        for b in benchmarks:
+            if b.name == benchmark_name:
+                existing_benchmark = b
+                print(f"[INFO] Found existing benchmark with ID: {b.id}")
+                break
+    except Exception as e:
+        print(f"[WARNING] Could not list benchmarks: {e}")
+
+    if existing_benchmark:
+        # Update existing benchmark by adding new scenarios
+        try:
+            print(
+                f"[INFO] Benchmark '{benchmark_name}' already exists with ID: {existing_benchmark.id}"
+            )
+            print(f"[INFO] New scenarios created: {', '.join(scenario_ids)}")
+            benchmark = await client.benchmarks.update(
+                name=benchmark_name, scenario_ids=scenario_ids
+            )
+
+        except Exception as e:
+            print(f"[WARNING] Could not update benchmark: {e}")
+            benchmark = existing_benchmark
+    else:
+        # Create new benchmark
+        try:
+            benchmark = await client.benchmarks.create(
+                name=benchmark_name, scenario_ids=scenario_ids
+            )
+            print(f"[INFO] Benchmark created with ID: {benchmark.id}")
+        except Exception as e:
+            print(f"[ERROR] Could not create benchmark '{benchmark_name}': {e}")
+            benchmark = None
+
+    return benchmark
 
 
 async def append_to_jsonl(
@@ -576,65 +646,7 @@ async def create_swegym_benchmark(
     # Extract scenario IDs from successful results
     scenario_ids = [r["scenario_id"] for r in results if r.get("status") == "success"]
 
-    if not scenario_ids:
-        print("[ERROR] No scenarios created successfully. Cannot create benchmark.")
-        return None, results
-
-    # Create or update benchmark
-    print(
-        f"\n[INFO] Creating/updating benchmark '{benchmark_name}' with {len(scenario_ids)} scenarios..."
-    )
-
-    # Try to find existing benchmark with this name
-    existing_benchmark = None
-    try:
-        benchmarks_response = await client.benchmarks.list()
-        # The response might have a .benchmarks attribute or be a list directly
-        benchmarks = (
-            benchmarks_response.benchmarks
-            if hasattr(benchmarks_response, "benchmarks")
-            else benchmarks_response
-        )
-        for b in benchmarks:
-            if b.name == benchmark_name:
-                existing_benchmark = b
-                print(f"[INFO] Found existing benchmark with ID: {b.id}")
-                break
-    except Exception as e:
-        print(f"[WARNING] Could not list benchmarks: {e}")
-
-    if existing_benchmark:
-        # Update existing benchmark by adding new scenarios
-        try:
-            # Get current scenario IDs
-            # current_scenarios = (
-            #     existing_benchmark.scenario_ids
-            #     if hasattr(existing_benchmark, "scenario_ids")
-            #     else []
-            # )
-            # Combine with new scenarios (avoiding duplicates)
-            # all_scenario_ids = list(set(current_scenarios + scenario_ids))
-
-            # Note: The API might not support updating benchmarks directly
-            # In that case, we'll just note the existing benchmark
-            print(
-                f"[INFO] Benchmark '{benchmark_name}' already exists with ID: {existing_benchmark.id}"
-            )
-            print(f"[INFO] New scenarios created: {', '.join(scenario_ids)}")
-            benchmark = existing_benchmark
-        except Exception as e:
-            print(f"[WARNING] Could not update benchmark: {e}")
-            benchmark = existing_benchmark
-    else:
-        # Create new benchmark
-        try:
-            benchmark = await client.benchmarks.create(
-                name=benchmark_name, scenario_ids=scenario_ids
-            )
-            print(f"[INFO] Benchmark created with ID: {benchmark.id}")
-        except Exception as e:
-            print(f"[ERROR] Could not create benchmark '{benchmark_name}': {e}")
-            benchmark = None
+    benchmark = await create_or_update_benchmark(client, benchmark_name, scenario_ids)
 
     return benchmark, results
 

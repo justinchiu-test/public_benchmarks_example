@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -15,6 +16,8 @@ POLLING_INTERVAL_SECONDS = 5
 DEVBOX_MAX_ATTEMPTS = int(60 * 10 / POLLING_INTERVAL_SECONDS)
 # 30 minutes
 SCORING_MAX_ATTEMPTS = int(60 * 30 / POLLING_INTERVAL_SECONDS)
+
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 
 @dataclass
@@ -285,8 +288,8 @@ async def run_scenario_with_reference_solution(
 
         prepare_swe_agent_command = await runloop.devboxes.execute_sync(
             id=scenario_run.devbox_id,
-            command="git clone -b coagent --depth 1 https://github.com/justinchiu-test/SWE-agent && cd SWE-agent && uv venv && source .venv/bin/activate && uv pip install -e .",
-            # command=f"git clone -b update --depth 1 https://{GITHUB_TOKEN}@github.com/cohere-ai/internal-SWE-agent && cd SWE-agent && uv venv && source .venv/bin/activate && uv pip install -e .",
+            # command="git clone -b coagent --depth 1 https://github.com/justinchiu-test/SWE-agent && cd SWE-agent && uv venv && source .venv/bin/activate && uv pip install -e .",
+            command=f"git clone -b together --depth 1 https://{GITHUB_TOKEN}@github.com/cohere-ai/internal-SWE-agent && cd SWE-agent && uv venv && source .venv/bin/activate && uv pip install -e .",
         )
         if prepare_swe_agent_command.exit_status != 0:
             raise Exception(
