@@ -297,7 +297,7 @@ async def run_scenario_with_reference_solution(
             )
 
         SWE_AGENT_COMMAND = f"""
-        cd SWE-agent && source .venv/bin/activate && \
+        cd internal-SWE-agent && source .venv/bin/activate && \
         pip install --upgrade pip && \
         export DEEPSEEK_API_KEY={openai_api_key} && \
         export CO_API_KEY={openai_api_key} && \
@@ -389,7 +389,7 @@ async def run_scenario_with_reference_solution(
     try:
         ls_execution = await runloop.devboxes.execute_async(
             scenario_run.devbox_id,
-            command="realpath SWE-agent/trajectories/swesmith/*/*",
+            command="realpath internal-SWE-agent/trajectories/swesmith/*/*",
         )
         ls_execution_state = await runloop.devboxes.executions.await_completed(
             execution_id=ls_execution.execution_id,
