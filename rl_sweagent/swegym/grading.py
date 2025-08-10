@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any
 
-from rl_sweagent.swegym.harness.constants import (
+from rl_sweagent.swegym.constants import (
     APPLY_PATCH_FAIL,
     APPLY_PATCH_PASS,
     FAIL_TO_FAIL,
@@ -17,8 +17,8 @@ from rl_sweagent.swegym.harness.constants import (
     ResolvedStatus,
     TestStatus,
 )
-from rl_sweagent.swegym.harness.log_parsers import MAP_REPO_TO_PARSER
-from rl_sweagent.swegym.harness.test_spec import TestSpec
+from rl_sweagent.swegym.log_parsers import MAP_REPO_TO_PARSER
+from rl_sweagent.swegym.test_spec import TestSpec
 
 
 # MARK: Utility functions

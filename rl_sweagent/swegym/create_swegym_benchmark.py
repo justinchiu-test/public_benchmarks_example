@@ -12,19 +12,24 @@ from runloop_api_client import AsyncRunloop
 from runloop_api_client.lib.polling import PollingConfig
 from runloop_api_client.types import BenchmarkView
 
+from rl_sweagent.swegym.constants import KEY_INSTANCE_ID
+from rl_sweagent.swegym.grading import get_eval_report
+
 # from rl_sweagent.swegym.scenario_builder import create_swegym_scenario
 from rl_sweagent.swegym.scenario_builder_blueprint import create_swegym_scenario
-from rl_sweagent.swegym.test_spec import make_test_spec
+from rl_sweagent.swegym.test_spec import TestSpec, make_test_spec
 
 
 async def test_scenario_with_gold_patch(
     client: AsyncRunloop,
     scenario_id: str,
-    instance_id: str = None,
+    test_spec: TestSpec,
     benchmark_name: str = "swegym",
     debug: bool = False,
 ) -> Dict:
     """Test that a scenario behaves correctly with the gold patch stored in reference_output."""
+
+    instance_id = test_spec.instance_id
 
     # Track all command executions for debugging
     command_logs = []
@@ -196,6 +201,69 @@ async def test_scenario_with_gold_patch(
                 timeout_seconds=1200,
             ),
         )
+        # to see the scoring script:
+        """
+>> scenario.scoring_contract.scoring_function_parameters[0].scorer.bash_script
+>> result.scoring_contract_result.scoring_function_results[0].dict().keys()
+dict_keys(['output', 'score', 'scoring_function_name', 'state'])
+# test script output
+>> result.scoring_contract_result.scoring_function_results
+"""
+        # copy over the test file
+        write_result = await client.devboxes.write_file_contents(
+            id=scenario_run.devbox_id,
+            file_path="/eval.sh",
+            contents=test_spec.eval_script,
+        )
+
+        if write_result.exit_status != 0:
+            print(
+                f"[{instance_id}] ERROR: Failed to write eval.sh file with exit code: {write_result.exit_status}"
+            )
+            if write_result.stderr:
+                print(f"[{instance_id}] stderr: {write_result.stderr}")
+
+        eval_result = await client.devboxes.execute_sync(
+            id=scenario_run.devbox_id,
+            command="/bin/bash /eval.sh",
+            timeout=1200,
+        )
+
+        if eval_result.exit_status != 0:
+            print(
+                f"[{instance_id}] ERROR: eval.sh failed with exit code: {eval_result.exit_status}"
+            )
+            if eval_result.stderr:
+                print(f"[{instance_id}] stderr: {eval_result.stderr}")
+
+        # Save test output to log directory
+        log_dir = os.path.join("logs", benchmark_name, instance_id)
+        os.makedirs(log_dir, exist_ok=True)
+        test_output_file = os.path.join(log_dir, "test_output.txt")
+
+        if eval_result.stdout:
+            async with aiofiles.open(test_output_file, mode="w") as f:
+                await f.write(eval_result.stdout)
+            print(f"[{instance_id}] Test output saved to {test_output_file}")
+
+        # Get evaluation report
+        pred = {
+            KEY_INSTANCE_ID: instance_id,
+            "model_patch": scenario.reference_output,  # The gold patch
+        }
+
+        report = get_eval_report(
+            test_spec=test_spec,
+            prediction=pred,
+            log_path=test_output_file,
+            include_tests_status=True,
+        )
+
+        print(f"[{instance_id}] Evaluation report: {report}")
+
+        import pdb
+
+        pdb.set_trace()
 
         # Get the score and output
         score = 0.0
@@ -265,6 +333,10 @@ async def test_scenario_with_gold_patch(
         }
 
     except Exception as e:
+        print(e)
+        import pdb
+
+        pdb.set_trace()
         # Save command logs even on error
         if command_logs:
             log_dir = os.path.join("logs", benchmark_name, instance_id)
@@ -338,7 +410,7 @@ async def create_or_update_benchmark(
             )
             print(f"[INFO] New scenarios created: {', '.join(scenario_ids)}")
             benchmark = await client.benchmarks.update(
-                name=benchmark_name, scenario_ids=scenario_ids
+                id=existing_benchmark.id, name=benchmark_name, scenario_ids=scenario_ids
             )
 
         except Exception as e:
@@ -383,6 +455,7 @@ async def process_instance(
     file_lock: asyncio.Lock,
     benchmark_name: str = "swegym",
     debug: bool = False,
+    overwrite_blueprint: bool = False,
 ):
     """Process a single instance to create a scenario."""
     async with semaphore:
@@ -397,10 +470,11 @@ async def process_instance(
 
             # Create scenario with its own snapshot
             scenario = await create_swegym_scenario(
-                client,
-                instance,
-                test_spec,
-                benchmark_name,
+                client=client,
+                instance=instance,
+                test_spec=test_spec,
+                overwrite_blueprint=overwrite_blueprint,
+                benchmark_name=benchmark_name,
             )
 
             # Test gold patch if requested
@@ -410,7 +484,7 @@ async def process_instance(
                 gold_patch_result = await test_scenario_with_gold_patch(
                     client,
                     scenario.id,
-                    instance_id,
+                    test_spec,
                     benchmark_name,
                     debug=debug,
                 )
@@ -484,6 +558,7 @@ async def create_swegym_benchmark(
     repo_filter: str = None,
     debug: bool = False,
     instance_ids: list = None,
+    overwrite_blueprint: bool = False,
 ):
     """Create SWE-Gym scenarios by sampling up to K instances from each repository.
 
@@ -497,6 +572,7 @@ async def create_swegym_benchmark(
         max_repos: Maximum number of repositories to include (None for all)
         repo_filter: If specified, only process instances from this repository
         debug: If True, keeps failed devboxes running for debugging
+        overwrite_blueprint: If True, force recreation of blueprints
     """
 
     if max_instances_per_repo == 0:
@@ -633,6 +709,7 @@ async def create_swegym_benchmark(
             file_lock,
             benchmark_name,
             debug,
+            overwrite_blueprint,
         )
         tasks.append(task)
 
@@ -900,6 +977,11 @@ async def main():
         default=None,
         help="Comma-separated list of specific instance IDs to run (e.g., 'iterative__dvc-3472,iterative__dvc-3493')",
     )
+    create_parser.add_argument(
+        "--overwrite-blueprint",
+        action="store_true",
+        help="Force recreation of blueprints even if they already exist (default: reuse existing blueprints)",
+    )
 
     # Status command
     status_parser = subparsers.add_parser(
@@ -994,6 +1076,7 @@ async def main():
             args.repo,
             args.debug,
             instance_ids_list,
+            args.overwrite_blueprint,
         )
 
         # Save results
