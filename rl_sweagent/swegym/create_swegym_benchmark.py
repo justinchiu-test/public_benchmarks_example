@@ -237,7 +237,7 @@ async def test_scenario_with_gold_patch(
         test_output_file = os.path.join(log_dir, "test_output.txt")
 
         binary_response = await client.devboxes.download_file(
-            scenario_run.devbox_id, path="/test_output.txt"
+            scenario_run.devbox_id, path="/test_output.txt", timeout=1200
         )
         await binary_response.write_to_file(test_output_file)
         print(f"[{instance_id}] Test output saved to {test_output_file}")
