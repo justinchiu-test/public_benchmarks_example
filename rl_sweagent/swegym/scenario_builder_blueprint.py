@@ -30,12 +30,16 @@ async def find_existing_blueprint(
         Existing blueprint object if found, None otherwise
     """
     blueprint_results = await client.blueprints.list(name=blueprint_name)
-    import pdb
 
-    pdb.set_trace()
     if blueprint_results.blueprints:
         for blueprint in blueprint_results.blueprints:
-            if blueprint.status == "build_complete":
+            if blueprint.status != "failed":
+                # make sure to wait for it to finish building
+                print(f"Found existing blueprint {blueprint.name}: {blueprint.status}")
+                await client.blueprint.await_build_complete(
+                    blueprint.id,
+                    polling_config=PollingConfig(interval_seconds=10, max_attempts=120),
+                )
                 return blueprint
     return None
 
