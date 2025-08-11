@@ -269,10 +269,6 @@ async def create_swegym_scenario(
                 image_name,
                 clear_existing=True,
             )
-    if instance_id == "pandas-dev__pandas-54002":
-        import pdb
-
-        pdb.set_trace()
 
     devbox = await client.devboxes.create_and_await_running(
         blueprint_name=blueprint_name
