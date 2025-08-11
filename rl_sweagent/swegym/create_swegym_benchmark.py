@@ -217,10 +217,10 @@ async def test_scenario_with_gold_patch(
             if write_result.stderr:
                 print(f"[{instance_id}] stderr: {write_result.stderr}")
 
-        # execute the real test script
+        # execute the real test script and write output to file
         eval_result = await client.devboxes.execute_sync(
             id=scenario_run.devbox_id,
-            command="/bin/bash /eval.sh 2>&1",
+            command="/bin/bash /eval.sh > /test_output.txt 2>&1",
             timeout=1200,
         )
 
@@ -236,10 +236,11 @@ async def test_scenario_with_gold_patch(
         os.makedirs(log_dir, exist_ok=True)
         test_output_file = os.path.join(log_dir, "test_output.txt")
 
-        if eval_result.stdout:
-            async with aiofiles.open(test_output_file, mode="w") as f:
-                await f.write(eval_result.stdout)
-            print(f"[{instance_id}] Test output saved to {test_output_file}")
+        binary_response = await client.devboxes.download_file(
+            scenario_run.devbox_id, path="/test_output.txt"
+        )
+        await binary_response.write_to_file(test_output_file)
+        print(f"[{instance_id}] Test output saved to {test_output_file}")
 
         # Get evaluation report
         pred = {

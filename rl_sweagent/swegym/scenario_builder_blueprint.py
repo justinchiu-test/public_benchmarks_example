@@ -30,8 +30,13 @@ async def find_existing_blueprint(
         Existing blueprint object if found, None otherwise
     """
     blueprint_results = await client.blueprints.list(name=blueprint_name)
+    import pdb
+
+    pdb.set_trace()
     if blueprint_results.blueprints:
-        return blueprint_results.blueprints[0]
+        for blueprint in blueprint_results.blueprints:
+            if blueprint.status == "build_complete":
+                return blueprint
     return None
 
 
@@ -252,8 +257,15 @@ async def create_swegym_scenario(
         else:
             print(f"[{instance_id}] No existing blueprint found, creating new one")
             blueprint = await create_blueprint(
-                client, blueprint_name, image_name, clear_existing=False
+                client,
+                blueprint_name,
+                image_name,
+                clear_existing=True,
             )
+    if instance_id == "pandas-dev__pandas-54002":
+        import pdb
+
+        pdb.set_trace()
 
     devbox = await client.devboxes.create_and_await_running(
         blueprint_name=blueprint_name
