@@ -194,22 +194,16 @@ async def test_scenario_with_gold_patch(
                 print(f"[{instance_id}] ERROR Stderr: {post_patch_check.stderr}")
 
         # Score the scenario with the patch applied
-        result = await client.scenarios.runs.score_and_await(
+        # the scenario is a dummy, just always passes to set up the environment.
+        await client.scenarios.runs.score_and_await(
             id=scenario_run.id,
             polling_config=PollingConfig(
                 interval_seconds=10,
                 timeout_seconds=1200,
             ),
         )
-        # to see the scoring script:
-        """
->> scenario.scoring_contract.scoring_function_parameters[0].scorer.bash_script
->> result.scoring_contract_result.scoring_function_results[0].dict().keys()
-dict_keys(['output', 'score', 'scoring_function_name', 'state'])
-# test script output
->> result.scoring_contract_result.scoring_function_results
-"""
-        # copy over the test file
+
+        # copy over the actual test file
         write_result = await client.devboxes.write_file_contents(
             id=scenario_run.devbox_id,
             file_path="/eval.sh",
@@ -223,9 +217,10 @@ dict_keys(['output', 'score', 'scoring_function_name', 'state'])
             if write_result.stderr:
                 print(f"[{instance_id}] stderr: {write_result.stderr}")
 
+        # execute the real test script
         eval_result = await client.devboxes.execute_sync(
             id=scenario_run.devbox_id,
-            command="/bin/bash /eval.sh",
+            command="/bin/bash /eval.sh 2>&1",
             timeout=1200,
         )
 
@@ -259,30 +254,19 @@ dict_keys(['output', 'score', 'scoring_function_name', 'state'])
             include_tests_status=True,
         )
 
-        print(f"[{instance_id}] Evaluation report: {report}")
+        is_resolved = report[instance_id]["resolved"]
 
-        import pdb
+        # Save report to JSON file
+        report_file = os.path.join(log_dir, "report.json")
+        async with aiofiles.open(report_file, mode="w") as f:
+            await f.write(json.dumps(report, indent=2))
+        print(f"[{instance_id}] Evaluation report saved to {report_file}")
 
-        pdb.set_trace()
+        # print(f"[{instance_id}] Evaluation report: {report}")
+        print(f"[{instance_id}] Evaluation report resolved: {is_resolved}")
 
         # Get the score and output
-        score = 0.0
-        scoring_output = None
-        if result.scoring_contract_result:
-            score = result.scoring_contract_result.score
-            # Get the scoring output directly from the result
-            if result.scoring_contract_result.scoring_function_results:
-                scoring_output = (
-                    result.scoring_contract_result.scoring_function_results[0].output
-                )
-                print(f"[{instance_id}] Scoring output:")
-                print("-" * 80)
-                print(f"[{instance_id}] {scoring_output[:2000]}")  # First 2000 chars
-                if len(scoring_output) > 2000:
-                    print(
-                        f"[{instance_id}] ... (truncated, total length: {len(scoring_output)} chars)"
-                    )
-                print("-" * 80)
+        score = 1.0 if is_resolved else 0.0
 
         # Complete the run to clean up
         if not debug:
@@ -292,7 +276,7 @@ dict_keys(['output', 'score', 'scoring_function_name', 'state'])
         if not patch_applied:
             status = "patch_failed"
         elif score >= 1.0:
-            status = "valid"  # Gold patch works correctly
+            status = "resolved"  # Gold patch works correctly
         elif score > 0:
             status = "partial"  # Some tests passed
         else:
@@ -314,7 +298,6 @@ dict_keys(['output', 'score', 'scoring_function_name', 'state'])
                         "score": score,
                         "patch_applied": patch_applied,
                         "command_logs": command_logs,
-                        "scoring_output": scoring_output if scoring_output else None,
                     },
                     indent=2,
                 )
@@ -327,16 +310,10 @@ dict_keys(['output', 'score', 'scoring_function_name', 'state'])
             "patch_applied": patch_applied,
             "run_id": scenario_run.id,
             "devbox_id": scenario_run.devbox_id,
-            "scoring_output": scoring_output[:1000]
-            if scoring_output
-            else None,  # Truncate for storage
         }
 
     except Exception as e:
         print(e)
-        import pdb
-
-        pdb.set_trace()
         # Save command logs even on error
         if command_logs:
             log_dir = os.path.join("logs", benchmark_name, instance_id)
