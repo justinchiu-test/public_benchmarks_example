@@ -38,7 +38,7 @@ async def find_existing_blueprint(
                 print(
                     f"[{blueprint.name}] Found existing blueprint: {blueprint.status}"
                 )
-                await client.blueprint.await_build_complete(
+                await client.blueprints.await_build_complete(
                     blueprint.id,
                     polling_config=PollingConfig(interval_seconds=10, max_attempts=120),
                 )
