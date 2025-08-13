@@ -94,10 +94,6 @@ async def main():
 
     final_scenarios = unique_scenarios
 
-    import pdb
-
-    pdb.set_trace()
-
     print("\nSummary:")
     print(f"- Original benchmark: {len(benchmark_scenario_ids)} scenarios")
     print(f"- Subset instances: {len(all_subset_instances)} instances")
