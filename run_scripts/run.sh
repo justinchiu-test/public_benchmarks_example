@@ -10,11 +10,18 @@
 # export MODEL_NAME="openai/c3-111b-code-sft-qldfa0lj-fp16-vllm" # 160/500
 #export MODEL_NAME="openai/c3-111b-code-sft-souwe4re-fp16-vllm" # 173/500
 # export MODEL_NAME="openai/c3-111b-code-sft-iklujits-fp16-vllm" # 155/500
-export MODEL_NAME="openai/c3-sweep-csfppp6g-fqfx-fp16" # ?/500
-export OPENAI_API_BASE="https://stg.api.cohere.ai/compatibility/v1"
-export OPENAI_API_KEY=$CO_API_KEY_STAGING
+#export MODEL_NAME="openai/c3-sweep-csfppp6g-fqfx-fp16" # ?/500
+#export OPENAI_API_BASE="https://stg.api.cohere.ai/compatibility/v1"
+#export OPENAI_API_KEY=$CO_API_KEY_STAGING
+#export MAX_OUTPUT_TOKENS=8000
+#export CONCURRENT=16
+
+# cohere prod
+export MODEL_NAME="co/command-a-03-2025" # ?/500
+export OPENAI_API_BASE="https://api.cohere.ai/compatibility/v1"
+export OPENAI_API_KEY=$CO_API_KEY
 export MAX_OUTPUT_TOKENS=8000
-export CONCURRENT=16
+export CONCURRENT=64
 
 # Claude
 #export OPENAI_API_KEY=$ANTHROPIC_API_KEY
