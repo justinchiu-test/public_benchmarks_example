@@ -395,6 +395,7 @@ async def run_scenario_with_reference_solution(
     log_dir = Path(".") / "trajectories" / data_name / model_name / instance_id
     log_dir.mkdir(exist_ok=True)
     try:
+        print("beginning scoring")
         # this just starts the devbox and runs a dummy script
         result = await runloop.scenarios.runs.score_and_await(
             id=scenario_run.id,

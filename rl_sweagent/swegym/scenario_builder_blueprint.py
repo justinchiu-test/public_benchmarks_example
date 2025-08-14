@@ -146,8 +146,8 @@ async def create_scenario(
     scenario_config = {
         "name": f"swegym-{instance_id}",
         "input_context": InputContextParam(
-            problem_statement="dummy",
-            # problem_statement=instance["problem_statement"],
+            # problem_statement="dummy",
+            problem_statement=instance["problem_statement"],
             # additional_context=format_additional_context(instance, test_spec),
         ),
         "scoring_contract": ScoringContractParam(
