@@ -1,5 +1,6 @@
 # from https://github.com/SWE-Gym/SWE-Bench-Fork/blob/main/swebench/harness/grading.py
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -267,3 +268,63 @@ def get_eval_report(
         report_map[instance_id]["tests_status"] = report  # type: ignore
 
     return report_map
+
+
+async def get_report_from_devbox(
+    client,
+    devbox_id: str,
+    test_spec: TestSpec,
+    log_dir: str,
+):
+    instance_id = test_spec.instance_id
+
+    write_result = await client.devboxes.write_file_contents(
+        id=devbox_id,
+        file_path="/eval.sh",
+        contents=test_spec.eval_script,
+    )
+
+    if write_result.exit_status != 0:
+        print(
+            f"[{instance_id}] ERROR: Failed to write eval.sh file with exit code: {write_result.exit_status}"
+        )
+        if write_result.stderr:
+            print(f"[{instance_id}] stderr: {write_result.stderr}")
+
+    # execute the real test script and write output to file
+    eval_result = await client.devboxes.execute_sync(
+        id=devbox_id,
+        command="/bin/bash /eval.sh > /test_output.txt 2>&1",
+        timeout=1200,
+    )
+
+    if eval_result.exit_status != 0:
+        print(
+            f"[{instance_id}] ERROR: eval.sh failed with exit code: {eval_result.exit_status}"
+        )
+        if eval_result.stderr:
+            print(f"[{instance_id}] stderr: {eval_result.stderr}")
+
+    # Save test output to log directory
+    test_output_file = os.path.join(log_dir, "test_output.txt")
+
+    binary_response = await client.devboxes.download_file(
+        devbox_id, path="/test_output.txt", timeout=1200
+    )
+    await binary_response.write_to_file(test_output_file)
+    print(f"[{instance_id}] Test output saved to {test_output_file}")
+
+    # Get evaluation report
+    pred = {
+        KEY_INSTANCE_ID: instance_id,
+        "model_patch": "dummy",  # dummy model patch, since we have the pytest results
+    }
+
+    report = get_eval_report(
+        test_spec=test_spec,
+        prediction=pred,
+        log_path=test_output_file,
+        include_tests_status=True,
+    )
+
+    return report

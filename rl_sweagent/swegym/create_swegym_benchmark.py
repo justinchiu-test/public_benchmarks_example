@@ -12,8 +12,7 @@ from runloop_api_client import AsyncRunloop
 from runloop_api_client.lib.polling import PollingConfig
 from runloop_api_client.types import BenchmarkView
 
-from rl_sweagent.swegym.constants import KEY_INSTANCE_ID
-from rl_sweagent.swegym.grading import get_eval_report
+from rl_sweagent.swegym.grading import get_report_from_devbox
 
 # from rl_sweagent.swegym.scenario_builder import create_swegym_scenario
 from rl_sweagent.swegym.scenario_builder_blueprint import create_swegym_scenario
@@ -203,56 +202,10 @@ async def test_scenario_with_gold_patch(
             ),
         )
 
-        # copy over the actual test file
-        write_result = await client.devboxes.write_file_contents(
-            id=scenario_run.devbox_id,
-            file_path="/eval.sh",
-            contents=test_spec.eval_script,
-        )
-
-        if write_result.exit_status != 0:
-            print(
-                f"[{instance_id}] ERROR: Failed to write eval.sh file with exit code: {write_result.exit_status}"
-            )
-            if write_result.stderr:
-                print(f"[{instance_id}] stderr: {write_result.stderr}")
-
-        # execute the real test script and write output to file
-        eval_result = await client.devboxes.execute_sync(
-            id=scenario_run.devbox_id,
-            command="/bin/bash /eval.sh > /test_output.txt 2>&1",
-            timeout=1200,
-        )
-
-        if eval_result.exit_status != 0:
-            print(
-                f"[{instance_id}] ERROR: eval.sh failed with exit code: {eval_result.exit_status}"
-            )
-            if eval_result.stderr:
-                print(f"[{instance_id}] stderr: {eval_result.stderr}")
-
-        # Save test output to log directory
         log_dir = os.path.join("logs", benchmark_name, instance_id)
         os.makedirs(log_dir, exist_ok=True)
-        test_output_file = os.path.join(log_dir, "test_output.txt")
-
-        binary_response = await client.devboxes.download_file(
-            scenario_run.devbox_id, path="/test_output.txt", timeout=1200
-        )
-        await binary_response.write_to_file(test_output_file)
-        print(f"[{instance_id}] Test output saved to {test_output_file}")
-
-        # Get evaluation report
-        pred = {
-            KEY_INSTANCE_ID: instance_id,
-            "model_patch": scenario.reference_output,  # The gold patch
-        }
-
-        report = get_eval_report(
-            test_spec=test_spec,
-            prediction=pred,
-            log_path=test_output_file,
-            include_tests_status=True,
+        report = await get_report_from_devbox(
+            client, scenario_run.devbox_id, test_spec, log_dir
         )
 
         is_resolved = report[instance_id]["resolved"]
@@ -268,6 +221,8 @@ async def test_scenario_with_gold_patch(
 
         # Get the score and output
         score = 1.0 if is_resolved else 0.0
+
+        # END EVAL CODE
 
         # Complete the run to clean up
         if not debug:
