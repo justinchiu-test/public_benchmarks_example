@@ -89,7 +89,7 @@ async def main():
 
     # swegym only
     # benchmark_id = "bmd_30Y31Pfau98VYQEYgDqI7"
-    benchmark_id = "bmd_30bNHsJehfE8WiBd2ltYU"  # small version
+    benchmark_id = "bmd_30bNHsJehfE8WiBd2ltYU"  # small version, 5 per repo
 
     semaphore = asyncio.Semaphore(args.concurrent_runs)
     runloop = AsyncRunloop()
@@ -283,9 +283,6 @@ async def run_scenario_with_reference_solution(
             command="curl -LsSf https://astral.sh/uv/install.sh | sh && echo 'export PATH=$PATH:/root/.local/bin' >> /root/.bashrc && export PATH=$PATH:/root/.local/bin",
         )
         if uv_command.exit_status != 0:
-            import pdb
-
-            pdb.set_trace()
             raise Exception(
                 f"Failed to install uv. stdout: {uv_command.stdout}\nstderr: {uv_command.stderr}"
             )
@@ -405,7 +402,7 @@ async def run_scenario_with_reference_solution(
             ),
         )
 
-        report = get_report_from_devbox(
+        report = await get_report_from_devbox(
             runloop, scenario_run.devbox_id, test_spec, log_dir
         )
         is_resolved = report[instance_id]["resolved"]
@@ -442,6 +439,7 @@ async def run_scenario_with_reference_solution(
                 scenario_run.devbox_id, path=remote_path
             )
             await binary_response.write_to_file(local_path)
+            print(f"IMPORTANT: Saved {name} to {str(local_path)}")
     except Exception as e:
         print(f"Error saving trajectory for scenario: {e}")
 
@@ -452,19 +450,13 @@ async def run_scenario_with_reference_solution(
         raise e
 
     # save score
-    if result.scoring_contract_result:
-        score_path = (
-            Path(".")
-            / "trajectories"
-            / data_name
-            / model_name
-            / instance_id
-            / "score.json"
-        )
-        score_path.parent.mkdir(parents=True, exist_ok=True)
-        with score_path.open("w") as f:
-            json.dump({"score": score}, f, indent=2)
-        print(f"IMPORTANT: Saved trajectory to {str(score_path)}")
+    score_path = (
+        Path(".") / "trajectories" / data_name / model_name / instance_id / "score.json"
+    )
+    score_path.parent.mkdir(parents=True, exist_ok=True)
+    with score_path.open("w") as f:
+        json.dump({"score": score}, f, indent=2)
+    print(f"IMPORTANT: Saved score to {str(score_path)}")
 
     if not keep_devbox:
         # Step 5. We complete the scenario run. This will delete the devbox and clean up the environment.
