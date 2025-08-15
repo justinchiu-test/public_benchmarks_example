@@ -393,7 +393,7 @@ async def run_scenario_with_reference_solution(
     # Step 3. We score the scenario. This will automatically run all scorers for the scenario against the current state of the devbox.
     data_name = benchmark_run_name or "singleton"
     log_dir = Path(".") / "trajectories" / data_name / model_name / instance_id
-    log_dir.mkdir(exist_ok=True)
+    log_dir.mkdir(exist_ok=True, parents=True)
     try:
         print("beginning scoring")
         # this just starts the devbox and runs a dummy script
