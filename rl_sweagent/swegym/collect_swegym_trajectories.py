@@ -26,6 +26,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 @dataclass
 class ScenarioRunResult:
+    # might as well use pydantic later
     scenario: ScenarioView
     run: Optional[ScenarioRunView] = None
     error: Optional[str] = None
@@ -408,6 +409,8 @@ async def run_scenario_with_reference_solution(
         is_resolved = report[instance_id]["resolved"]
         score = 1.0 if is_resolved else 0.0
         print(f"Scoring result: id={result.id} score={score}")
+        # mutate the result score
+        result.scoring_contract_result.score = score
     except Exception as e:
         print(f"Error scoring scenario: {e}")
 
