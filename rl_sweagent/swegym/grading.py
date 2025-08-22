@@ -50,8 +50,8 @@ def get_logs_eval(log_fp: str) -> tuple[dict[str, str], bool]:
     # Convert e.g. "logs/scikit-learn__scikit-learn-12421/test_output.txt" to "scikit-learn/scikit-learn"
     sample_id = str(Path(log_fp).parent.stem)  # e.g. scikit-learn__scikit-learn-12421
     repo = "-".join(
-        sample_id.replace("__", "/").split("-")[:-1].lower()
-    )  # e.g. scikit-learn/scikit-learn
+        sample_id.replace("__", "/").split("-")[:-1]
+    ).lower()  # e.g. scikit-learn/scikit-learn
     log_parser = MAP_REPO_TO_PARSER[repo]
 
     with open(log_fp) as f:
