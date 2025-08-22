@@ -409,7 +409,7 @@ async def run_scenario_with_reference_solution(
         report = await get_report_from_devbox(
             runloop, scenario_run.devbox_id, test_spec, log_dir
         )
-        is_resolved = report[instance_id]["resolved"]
+        is_resolved = report[instance_id.lower()]["resolved"]
         score = 1.0 if is_resolved else 0.0
         print(f"Scoring result: id={result.id} score={score}")
         # mutate the result score
