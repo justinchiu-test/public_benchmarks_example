@@ -343,6 +343,7 @@ async def run_scenario_with_reference_solution(
         print(f"Final execution state: {final_execution_state.exit_status}")
         print(f"Final execution output: {final_execution_state.stdout}")
         if final_execution_state.exit_status != 0:
+            print(f"Final execution stderr: {final_execution_state.stderr}")
             raise Exception(
                 f"SWE agent failed to run. Exit status: {final_execution_state.exit_status}"
             )

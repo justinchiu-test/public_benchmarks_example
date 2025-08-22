@@ -89,8 +89,10 @@ async def main():
     args = parser.parse_args()
 
     # swegym only
-    # benchmark_id = "bmd_30Y31Pfau98VYQEYgDqI7"
-    benchmark_id = "bmd_30bNHsJehfE8WiBd2ltYU"  # small version, 5 per repo
+    # benchmark_id = "bmd_30Y31Pfau98VYQEYgDqI7" # full
+    # benchmark_id = "bmd_30olSAJlh0qX9bVKJemj0"  # smallish version, 10 per repo
+    # benchmark_id = "bmd_30bNHsJehfE8WiBd2ltYU"  # small version, 5 per repo
+    benchmark_id = "bmd_30pKX2xGUG30czwXSEmEA"  # small version, 5 per repo
 
     semaphore = asyncio.Semaphore(args.concurrent_runs)
     runloop = AsyncRunloop()
@@ -403,6 +405,7 @@ async def run_scenario_with_reference_solution(
             ),
         )
 
+        print("getting report from devbox")
         report = await get_report_from_devbox(
             runloop, scenario_run.devbox_id, test_spec, log_dir
         )

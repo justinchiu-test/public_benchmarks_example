@@ -7,11 +7,11 @@
 #export MODEL_NAME="openai/c3-111b-code-sft-2iib0oqr-fp16-vllm"
 #export MODEL_NAME="openai/c3-111b-code-sft-2iib0oqr-fp16-vllm"
 #export OPENAI_API_BASE="https://stg.api.cohere.ai/compatibility/v1"
-export MODEL_NAME="co/c3-sweep-ecsydrkq-690h-fp16" # 188/500
+#export MODEL_NAME="co/c3-sweep-ecsydrkq-690h-fp16" # 188/500
 export OPENAI_API_BASE="https://stg.api.cohere.ai/v1"
-export OPENAI_API_KEY=$CO_API_KEY_STAGING
-export CONCURRENT=4
-export MAX_OUTPUT_TOKENS=8000
+#export OPENAI_API_KEY=$CO_API_KEY_STAGING
+#export CONCURRENT=4
+#export MAX_OUTPUT_TOKENS=8000
 
 # Qwen
 #export OPENAI_API_BASE="https://api.together.xyz/v1"
@@ -22,8 +22,10 @@ export MAX_OUTPUT_TOKENS=8000
 #export CONCURRENT=32
 
 # Claude
-#export OPENAI_API_KEY=$ANTHROPIC_API_KEY
-#export MODEL_NAME="claude-sonnet-4-20250514"
+export OPENAI_API_KEY=$ANTHROPIC_API_KEY
+export MODEL_NAME="claude-sonnet-4-20250514"
+export MAX_OUTPUT_TOKENS=16000
+export CONCURRENT=32
 
 # DS
 #export OPENAI_API_BASE="https://api.together.xyz/v1"
