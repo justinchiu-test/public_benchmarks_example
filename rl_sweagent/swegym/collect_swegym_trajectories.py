@@ -261,9 +261,9 @@ async def run_scenario_with_reference_solution(
     print(f"Running scenario: {scenario.id} {scenario.name}")
     print(f"View Scenario Info at: https://platform.runloop.ai/scenarios/{scenario.id}")
 
-    instance_id = scenario.metadata["instance_id"]
-    instance = get_instance(instance_id)
+    instance = get_instance(scenario.metadata["instance_id"])
     test_spec = make_test_spec(instance)
+    instance_id = test_spec.instance_id  # convert to lowercase in test_spec
 
     # Step 1. We start a scenario run which will create a devbox and prepare the environment for testing
     scenario_run = await runloop.scenarios.start_run_and_await_env_ready(
@@ -409,7 +409,7 @@ async def run_scenario_with_reference_solution(
         report = await get_report_from_devbox(
             runloop, scenario_run.devbox_id, test_spec, log_dir
         )
-        is_resolved = report[instance_id.lower()]["resolved"]
+        is_resolved = report[instance_id]["resolved"]
         score = 1.0 if is_resolved else 0.0
         print(f"Scoring result: id={result.id} score={score}")
         # mutate the result score
